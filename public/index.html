@@ -327,35 +327,18 @@
   #toolbar[data-mode="keys"].fn-layer .keys-row.layer-base { display: none; }
   #toolbar[data-mode="keys"].fn-layer .keys-row.layer-fn { display: flex; }
 
-  /* ── Bottom persistent row ── */
-  #mode-area {
-    flex: 1 1 0;
-    min-width: 0;
-    display: flex;
-  }
-  .mode-pane {
-    display: none;
-    flex: 1 1 0;
-    min-width: 0;
-    align-items: center;
-    gap: 4px;
-  }
+  /* ── Bottom persistent row ──
+     #mode-area, #cluster, and the active pane are flattened (display:
+     contents) so every control is a direct flex item of #row-bottom and
+     shares one equal-width grid, like the key rows above. */
+  #mode-area, #cluster { display: contents; }
+  .mode-pane { display: none; }
   #toolbar[data-mode="keys"] .mode-pane[data-pane="keys"],
   #toolbar[data-mode="settings"] .mode-pane[data-pane="settings"],
-  #toolbar[data-mode="select"] .mode-pane[data-pane="select"] { display: flex; }
-  .mode-pane button { flex: 1 1 0; }
-
-  #cluster {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-shrink: 0;
-  }
-  #cluster button { min-width: 38px; padding: 0 6px; }
-  /* Desktop (non-mobile UA): no soft keyboard — hide its button; the
-     freed width flows to the select/settings buttons */
+  #toolbar[data-mode="select"] .mode-pane[data-pane="select"] { display: contents; }
+  #row-bottom button { flex: 1 1 0; padding: 0 2px; }
+  /* Desktop (non-mobile UA): no soft keyboard — hide its button */
   body.no-mobile #kb-btn { display: none; }
-  body.no-mobile #cluster button { min-width: 58px; }
 
   /* ── Font size display ── */
   .font-display {
@@ -414,7 +397,6 @@
   /* ── Responsive ── */
   @media (max-width: 400px) {
     button { height: 34px; font-size: 11px; }
-    #cluster button { min-width: 32px; padding: 0 4px; }
     .toolbar-row { gap: 3px; padding: 3px; }
   }
 </style>
@@ -540,6 +522,11 @@
     if (FONT_SIZES.includes(saved)) initialFontSize = saved;
   } catch (_) { /* storage unavailable */ }
 
+  // ── Mobile detection (Android / iOS / iPadOS only) ────
+  // iPadOS 13+ masquerades as macOS in the UA; multi-touch exposes it.
+  const IS_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
+    || (/Mac/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
   // ── Terminal ──────────────────────────────────────────
   const term = new Terminal({
     fontSize: initialFontSize,
@@ -577,7 +564,11 @@
 
   const container = document.getElementById('terminal-container');
   term.open(container);
-  term.focus();
+  // Focus at load only on desktop. On mobile, programmatic focus cannot
+  // summon the IME (needs a user gesture), which leaves "focused but
+  // keyboard hidden" - the kb button's focus-based toggle then wastes its
+  // first tap on a no-op blur.
+  if (!IS_MOBILE) term.focus();
   // Tap terminal area to focus
   container.addEventListener('click', () => term.focus());
   // Delay initial fit until layout is done
@@ -632,7 +623,7 @@
           rows: term.rows,
         })));
         term.reset();
-        term.focus();
+        if (!IS_MOBILE) term.focus();
       };
 
       socket.onmessage = (event) => {
@@ -1090,11 +1081,6 @@
   let cachedPlatform = null;
   try { cachedPlatform = localStorage.getItem(PLATFORM_KEY); } catch (_) { /* ignore */ }
   if (cachedPlatform) applyPlatform(cachedPlatform);
-
-  // ── Mobile detection (Android / iOS / iPadOS only) ────
-  // iPadOS 13+ masquerades as macOS in the UA; multi-touch exposes it.
-  const IS_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
-    || (/Mac/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
 
   // ── Toolbar toggle ─────────────────────────────────────
   // Mobile: toolbar shown by default. Desktop: hidden until ☰.
