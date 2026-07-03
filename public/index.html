@@ -411,21 +411,21 @@
   <!-- Special-keys mode: base layer -->
   <div class="toolbar-row keys-row layer-base">
     <button data-key="esc" title="Escape">Esc</button>
-    <button data-key="backtick" title="Backtick">`</button>
     <button data-key="tab" title="Tab">Tab</button>
-    <button data-key="backslash" title="Backslash">\</button>
-    <button data-key="slash" title="Slash">/</button>
-    <button data-key="backspace" title="Backspace">&#x232B;</button>
-    <button data-key="ins" title="Insert">Ins</button>
+    <button data-key="backtick" data-shift="~" title="Backtick (Shift = ~)">`</button>
+    <button data-key="dash" data-shift="_" title="Dash (Shift = _)">-</button>
+    <button data-key="backslash" data-shift="|" title="Backslash (Shift = |)">\</button>
+    <button data-key="quote" data-shift="&quot;" title="Quote (Shift = &quot;)">'</button>
+    <button data-key="slash" data-shift="?" title="Slash (Shift = ?)">/</button>
     <button data-key="del" title="Delete">Del</button>
     <button data-key="enter" class="accent" title="Enter">&#x23CE;</button>
   </div>
   <div class="toolbar-row keys-row layer-base">
     <button data-action="fn" title="F1-F12 layer">Fn</button>
-    <button data-mod="ctrl" title="Ctrl (one-shot)">Ctrl</button>
-    <button data-mod="alt" title="Alt (one-shot)">Alt</button>
     <button data-mod="shift" title="Shift (one-shot)">Shift</button>
+    <button data-mod="ctrl" title="Ctrl (one-shot)">Ctrl</button>
     <button data-mod="meta" title="Meta (one-shot)">Win</button>
+    <button data-mod="alt" title="Alt (one-shot)">Alt</button>
     <button data-key="home" title="Home">Home</button>
     <button data-key="end" title="End">End</button>
     <button data-key="pgup" title="Page Up">PgUp</button>
@@ -776,8 +776,9 @@
     backtick:  (m) => m.shift ? '~' : '`',
     backslash: (m) => m.shift ? '|' : '\\',
     slash:     (m) => m.shift ? '?' : '/',
+    dash:      (m) => m.shift ? '_' : '-',
+    quote:     (m) => m.shift ? '"' : "'",
     tab:       (m) => m.shift ? '\x1b[Z' : '\x09',
-    backspace: (m) => (m.alt ? '\x1b' : '') + (m.ctrl ? '\x08' : '\x7f'),
     enter:     () => '\x0d',
     up:    (m) => csiMod('', 'A', m),
     down:  (m) => csiMod('', 'B', m),
@@ -785,7 +786,6 @@
     left:  (m) => csiMod('', 'D', m),
     home:  (m) => csiMod('', 'H', m),
     end:   (m) => csiMod('', 'F', m),
-    ins:   (m) => csiMod('2', '~', m),
     del:   (m) => csiMod('3', '~', m),
     pgup:  (m) => csiMod('5', '~', m),
     pgdn:  (m) => csiMod('6', '~', m),
@@ -809,6 +809,11 @@
   function updateModButtons() {
     toolbar.querySelectorAll('button[data-mod]').forEach((b) => {
       b.classList.toggle('active', sticky[b.dataset.mod]);
+    });
+    // Shift preview: symbol keys show their shifted glyph while Shift is armed
+    toolbar.querySelectorAll('button[data-shift]').forEach((b) => {
+      if (b.dataset.base === undefined) b.dataset.base = b.textContent;
+      b.textContent = sticky.shift ? b.dataset.shift : b.dataset.base;
     });
   }
   function clearSticky() {
@@ -1075,8 +1080,13 @@
   };
   function applyPlatform(p) {
     const labels = MOD_LABELS[p] || MOD_LABELS.windows;
-    toolbar.querySelectorAll('button[data-mod="alt"]').forEach((b) => { b.textContent = labels.alt; });
-    toolbar.querySelectorAll('button[data-mod="meta"]').forEach((b) => { b.textContent = labels.meta; });
+    const alt = toolbar.querySelector('button[data-mod="alt"]');
+    const meta = toolbar.querySelector('button[data-mod="meta"]');
+    alt.textContent = labels.alt;
+    meta.textContent = labels.meta;
+    // Physical bottom-row order: Win/Linux = Ctrl·Meta·Alt, macOS = Ctrl·Option·Command
+    if (p === 'macos') meta.before(alt);
+    else alt.before(meta);
   }
   let cachedPlatform = null;
   try { cachedPlatform = localStorage.getItem(PLATFORM_KEY); } catch (_) { /* ignore */ }
