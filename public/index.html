@@ -720,7 +720,6 @@
         e.preventDefault();
         sendInput(seq);
       });
-      btn.addEventListener('touchstart', (e) => { e.preventDefault(); });
     }
   });
 
@@ -742,7 +741,6 @@
     e.preventDefault();
     setCtrlActive(!ctrlActive);
   });
-  ctrlToggle.addEventListener('touchstart', (e) => { e.preventDefault(); });
 
   // Dedicated Ctrl+key buttons
   Object.entries(CTRL_KEYS).forEach(([id, seq]) => {
@@ -753,7 +751,6 @@
       sendInput(seq);
       setCtrlActive(false);
     });
-    btn.addEventListener('touchstart', (e) => { e.preventDefault(); });
   });
 
   // Ctrl toggle + physical keyboard intercept
