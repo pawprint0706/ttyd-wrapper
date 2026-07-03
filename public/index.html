@@ -470,9 +470,18 @@
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
 
+  // ── Font size persistence ─────────────────────────────
+  const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32];
+  const FONT_KEY = 'ttyd-wrapper.fontSize';
+  let initialFontSize = 14;
+  try {
+    const saved = parseInt(localStorage.getItem(FONT_KEY), 10);
+    if (FONT_SIZES.includes(saved)) initialFontSize = saved;
+  } catch (_) { /* storage unavailable */ }
+
   // ── Terminal ──────────────────────────────────────────
   const term = new Terminal({
-    fontSize: 14,
+    fontSize: initialFontSize,
     fontFamily: 'Consolas, "Courier New", "D2Coding", monospace',
     cursorBlink: true,
     cursorStyle: 'bar',
@@ -655,15 +664,16 @@
   window.addEventListener('resize', handleResize);
 
   // ── Font size ──────────────────────────────────────────
-  const FONT_SIZES = [10, 11, 12, 13, 14, 15, 16, 18, 20, 22, 24, 28, 32];
   const fontLabel = document.getElementById('font-label');
-  let fontSizeIdx = 4; // default 14px
+  let fontSizeIdx = FONT_SIZES.indexOf(initialFontSize);
+  fontLabel.textContent = initialFontSize;
 
   function setFontSize(size) {
     term.options.fontSize = size;
     fontLabel.textContent = size;
     const idx = FONT_SIZES.indexOf(size);
     if (idx !== -1) fontSizeIdx = idx;
+    try { localStorage.setItem(FONT_KEY, size); } catch (_) { /* ignore */ }
     requestAnimationFrame(() => fitAddon.fit());
   }
 
