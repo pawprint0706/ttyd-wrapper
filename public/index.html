@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>ttyd Terminal</title>
@@ -815,6 +815,24 @@
     toggleBtn.innerHTML = toolbarVisible ? '&#x2630;' : '&#x2630;';
     requestAnimationFrame(() => fitAddon.fit());
   });
+
+  // ── Soft keyboard handling ────────────────────────────
+  // Android Chrome 108+: interactive-widget=resizes-content (viewport meta)
+  // shrinks the layout viewport natively, so flex layout adapts by itself.
+  // iOS Safari: the keyboard only shrinks the VISUAL viewport - the layout
+  // viewport (and 100dvh) stays full-height, covering the toolbar. Pin the
+  // body to visualViewport.height while the keyboard is open.
+  if (window.visualViewport) {
+    const vv = window.visualViewport;
+    const onViewportChange = () => {
+      const keyboardOpen = vv.height < window.innerHeight - 1;
+      document.body.style.height = keyboardOpen ? vv.height + 'px' : '';
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => fitAddon.fit());
+    };
+    vv.addEventListener('resize', onViewportChange);
+    vv.addEventListener('scroll', onViewportChange);
+  }
 
   // ── Init ───────────────────────────────────────────────
   connect();

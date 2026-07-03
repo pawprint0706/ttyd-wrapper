@@ -78,6 +78,7 @@ bin\install-service.bat
 - 기존 서비스가 있으면 교체 (멱등)
 - 부팅 시 자동 시작, 크래시 시 3초 후 재시작
 - 방화벽 인바운드 규칙(TCP 33322) 자동 등록 — 모바일 접속에 필수
+- 설치 시점 사용자 환경(PATH, USERPROFILE, APPDATA, LOCALAPPDATA)을 서비스에 주입 — 서비스는 LocalSystem 계정으로 실행되므로 이 처리가 없으면 사용자 설치 CLI(omp 등)를 찾지 못한다. **PATH에 도구를 새로 설치했다면 이 스크립트를 재실행**해야 반영된다
 - 로그: `logs\ttyd.log` (1MB 로테이션)
 - 실행될 명령 미리보기: `bin\install-service.bat /dry`
 
