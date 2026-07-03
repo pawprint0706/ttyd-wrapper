@@ -56,7 +56,8 @@ ttyd-wrapper/
 │   ├── ttyd.bat               # 수동 실행 스크립트
 │   ├── nssm.exe               # 서비스 매니저 (NSSM)
 │   ├── install-service.bat    # 윈도우 서비스 등록 (UAC 자동 승격)
-│   └── uninstall-service.bat  # 서비스 제거
+│   ├── uninstall-service.bat  # 서비스 제거
+│   └── service-launcher.ps1   # 서비스 기동 시 사용자 PATH 재구성 후 ttyd 실행
 ├── public/
 │   ├── index.html             # 커스텀 웹 래퍼 (단일 파일, 벤더 인라인)
 │   └── vendor/                # xterm.js 원본 (참조용, 런타임 미사용)
@@ -78,7 +79,8 @@ bin\install-service.bat
 - 기존 서비스가 있으면 교체 (멱등)
 - 부팅 시 자동 시작, 크래시 시 3초 후 재시작
 - 방화벽 인바운드 규칙(TCP 33322) 자동 등록 — 모바일 접속에 필수
-- 설치 시점 사용자 환경(PATH, USERPROFILE, APPDATA, LOCALAPPDATA)을 서비스에 주입 — 서비스는 LocalSystem 계정으로 실행되므로 이 처리가 없으면 사용자 설치 CLI(omp 등)를 찾지 못한다. **PATH에 도구를 새로 설치했다면 이 스크립트를 재실행**해야 반영된다
+- 서비스는 `service-launcher.ps1`을 경유해 기동 — **서비스 시작 시마다** 레지스트리에서 머신+사용자 PATH를 새로 읽어 구성하므로, PATH 변경 후 **서비스 재시작만으로 반영**된다 (재설치 불필요). 설치 시점에는 변하지 않는 값(사용자 SID·프로필 경로)만 기록. 사용자 로그온 전(부팅 직후)에도 NTUSER.DAT를 임시 로드해 처리
+- 설치 스크립트는 **본인 데스크톱 세션에서 실행**해야 한다 — 웹 터미널(SYSTEM 계정)에서 실행하면 잘못된 사용자를 캡처하므로 스크립트가 차단함
 - 로그: `logs\ttyd.log` (1MB 로테이션)
 - 실행될 명령 미리보기: `bin\install-service.bat /dry`
 

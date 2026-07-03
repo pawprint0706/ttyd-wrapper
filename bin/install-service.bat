@@ -5,6 +5,10 @@ setlocal EnableExtensions
 ::  ttyd-wrapper Windows Service Installer (via NSSM)
 ::  Usage:  install-service.bat        (installs + starts)
 ::          install-service.bat /dry   (print commands only)
+::
+::  The service runs service-launcher.ps1, which re-resolves the
+::  user's PATH from the registry at EVERY service start - so
+::  PATH changes never require re-running this installer.
 :: ============================================================
 
 :: ---------- Configuration ----------
@@ -20,6 +24,8 @@ if "%BIN_DIR:~-1%"=="\" set "BIN_DIR=%BIN_DIR:~0,-1%"
 for %%i in ("%BIN_DIR%\..") do set "ROOT=%%~fi"
 set "NSSM=%BIN_DIR%\nssm.exe"
 set "TTYD=%BIN_DIR%\ttyd.exe"
+set "LAUNCHER=%BIN_DIR%\service-launcher.ps1"
+set "PSEXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 set "INDEX=%ROOT%\public\index.html"
 set "LOG_DIR=%ROOT%\logs"
 
@@ -27,13 +33,15 @@ set "DRYRUN=0"
 if /i "%~1"=="/dry" set "DRYRUN=1"
 
 :: ---------- Sanity checks ----------
-if not exist "%NSSM%"  ( echo [ERROR] nssm.exe not found: %NSSM% & pause & exit /b 1 )
-if not exist "%TTYD%"  ( echo [ERROR] ttyd.exe not found: %TTYD% & pause & exit /b 1 )
-if not exist "%INDEX%" ( echo [ERROR] index.html not found: %INDEX% & pause & exit /b 1 )
+if not exist "%NSSM%"     ( echo [ERROR] nssm.exe not found: %NSSM% & pause & exit /b 1 )
+if not exist "%TTYD%"     ( echo [ERROR] ttyd.exe not found: %TTYD% & pause & exit /b 1 )
+if not exist "%LAUNCHER%" ( echo [ERROR] service-launcher.ps1 not found: %LAUNCHER% & pause & exit /b 1 )
+if not exist "%INDEX%"    ( echo [ERROR] index.html not found: %INDEX% & pause & exit /b 1 )
 
 echo.
 echo === ttyd-wrapper service installer ===
 echo   Service : %SERVICE_NAME%
+echo   Launcher: %LAUNCHER%
 echo   Binary  : %TTYD%
 echo   Index   : %INDEX%
 echo   Port    : %PORT%
@@ -43,13 +51,24 @@ echo.
 
 if "%DRYRUN%"=="1" (
     echo [DRY RUN] Commands that would be executed:
-    echo   "%NSSM%" install %SERVICE_NAME% "%TTYD%"
-    echo   "%NSSM%" set %SERVICE_NAME% AppParameters --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+    echo   "%NSSM%" install %SERVICE_NAME% "%PSEXE%"
+    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+    echo   "%NSSM%" set %SERVICE_NAME% AppEnvironmentExtra "TTYD_USER_SID=<your-sid>" "TTYD_USER_PROFILE=%USERPROFILE%"
     echo   "%NSSM%" set %SERVICE_NAME% AppDirectory "%BIN_DIR%"
     echo   "%NSSM%" start %SERVICE_NAME%
-    echo   "%NSSM%" set %SERVICE_NAME% AppEnvironmentExtra "PATH=..." "USERPROFILE=%USERPROFILE%" "APPDATA=%APPDATA%" "LOCALAPPDATA=%LOCALAPPDATA%"
     echo   netsh advfirewall firewall add rule name="%SERVICE_NAME%" dir=in action=allow protocol=TCP localport=%PORT%
     exit /b 0
+)
+
+:: ---------- Must run as a real user, not SYSTEM ----------
+:: The installer captures YOUR identity (SID + profile) for the launcher.
+:: Running it from the web terminal (SYSTEM) would capture the wrong user.
+whoami | find /i "nt authority\system" >nul
+if "%errorlevel%"=="0" (
+    echo [ERROR] Do not run this installer from the web terminal.
+    echo         Run it from your own desktop session so it can capture
+    echo         your user identity for the service environment.
+    pause & exit /b 1
 )
 
 :: ---------- Elevation check ----------
@@ -59,6 +78,12 @@ if not "%errorlevel%"=="0" (
     powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
     exit /b
 )
+
+:: ---------- Capture stable user identity ----------
+set "USER_SID="
+for /f "tokens=2 delims=," %%s in ('whoami /user /fo csv /nh') do set "USER_SID=%%~s"
+if not defined USER_SID ( echo [ERROR] Failed to resolve user SID & pause & exit /b 1 )
+echo   User SID: %USER_SID%
 
 :: ---------- Remove existing service (idempotent) ----------
 sc query "%SERVICE_NAME%" >nul 2>&1
@@ -71,19 +96,18 @@ if "%errorlevel%"=="0" (
 :: ---------- Install ----------
 if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 
-"%NSSM%" install "%SERVICE_NAME%" "%TTYD%"
+"%NSSM%" install "%SERVICE_NAME%" "%PSEXE%"
 if not "%errorlevel%"=="0" ( echo [ERROR] nssm install failed & pause & exit /b 1 )
 
-"%NSSM%" set "%SERVICE_NAME%" AppParameters --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
 "%NSSM%" set "%SERVICE_NAME%" AppDirectory "%BIN_DIR%"
 "%NSSM%" set "%SERVICE_NAME%" DisplayName "%SERVICE_DISPLAY%"
 "%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over HTTP port %PORT%"
 "%NSSM%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
 
-:: Inject the installing user's environment. The service runs as LocalSystem,
-:: which lacks user PATH entries (e.g. %%LOCALAPPDATA%%\omp) and user profile
-:: paths, so user-installed CLI tools would be "command not found" otherwise.
-"%NSSM%" set "%SERVICE_NAME%" AppEnvironmentExtra "PATH=%PATH%" "USERPROFILE=%USERPROFILE%" "APPDATA=%APPDATA%" "LOCALAPPDATA=%LOCALAPPDATA%"
+:: Stable identity only - PATH itself is resolved fresh by the launcher
+:: at every service start.
+"%NSSM%" set "%SERVICE_NAME%" AppEnvironmentExtra "TTYD_USER_SID=%USER_SID%" "TTYD_USER_PROFILE=%USERPROFILE%"
 
 :: Logging with rotation (1 MB)
 "%NSSM%" set "%SERVICE_NAME%" AppStdout "%LOG_DIR%\ttyd.log"

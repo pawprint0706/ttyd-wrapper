@@ -294,7 +294,8 @@ ttyd-wrapper/
 │   ├── ttyd.bat               # 수동 실행 스크립트
 │   ├── nssm.exe               # 서비스 매니저 (NSSM)
 │   ├── install-service.bat    # 윈도우 서비스 등록 (관리자 자동 승격)
-│   └── uninstall-service.bat  # 서비스 제거
+│   ├── uninstall-service.bat  # 서비스 제거
+│   └── service-launcher.ps1   # 기동 시 레지스트리에서 사용자 PATH 재구성 후 ttyd 실행
 ├── public/
 │   ├── index.html             # 커스텀 웹 래퍼 (단일 파일, 벤더 인라인)
 │   └── vendor/                # xterm.js 원본 (참조용, 런타임 미사용)
