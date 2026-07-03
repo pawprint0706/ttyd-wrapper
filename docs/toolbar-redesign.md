@@ -31,12 +31,16 @@
 |---|---|
 | `⌶` 선택 | 텍스트 선택 모드 토글. 활성 시 highlight, 다시 누르면 특수키 모드 복귀 |
 | `⚙` 설정 | 설정 모드 토글. 동작 동일 |
-| `⌨` 키보드 | `term.textarea.focus()` ↔ `blur()` 로 모바일 IME 열기/닫기. 열림 상태는 `visualViewport` 높이로 추적해 active 표시 |
+| `⌨` 키보드 | `term.textarea.focus()` ↔ `blur()` 로 모바일 IME 열기/닫기. 열림 상태는 `visualViewport` 높이로 추적해 active 표시. **모바일 전용** — PC에서는 숨김(남는 폭은 선택/설정이 차지) |
 | `●` 상태등 | 기존 `#status` 이전. connected 초록 / disconnected 빨강. 맨 우측 끝 |
 
 모드 전환 = 클러스터 버튼 자체가 담당하므로 별도 탭 UI 불필요.
 설정/선택 버튼 둘 다 꺼진 상태 = 특수키 모드(기본).
 모드 전환 시 `fitAddon.fit()` 호출 (바 높이가 3줄↔1줄로 변함).
+
+**모바일 판별 / 기본 표시** (구현 반영): UA로 Android/iOS/iPadOS만 모바일 취급 —
+`/Android|iPhone|iPod|iPad/` + iPadOS 13+ 위장 대응(`Mac` UA && `maxTouchPoints > 1`).
+모바일은 툴바 기본 표시, PC(`body.no-mobile`)는 기본 숨김이며 ☰ 버튼으로 열기.
 
 기존 플로팅 `#toggle-btn`(툴바 전체 접기 ☰)은 그대로 유지 — 클러스터의 ⌨는 IME 전용.
 

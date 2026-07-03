@@ -353,6 +353,10 @@
     flex-shrink: 0;
   }
   #cluster button { min-width: 38px; padding: 0 6px; }
+  /* Desktop (non-mobile UA): no soft keyboard — hide its button; the
+     freed width flows to the select/settings buttons */
+  body.no-mobile #kb-btn { display: none; }
+  body.no-mobile #cluster button { min-width: 58px; }
 
   /* ── Font size display ── */
   .font-display {
@@ -1088,14 +1092,21 @@
   try { cachedPlatform = localStorage.getItem(PLATFORM_KEY); } catch (_) { /* ignore */ }
   if (cachedPlatform) applyPlatform(cachedPlatform);
 
+  // ── Mobile detection (Android / iOS / iPadOS only) ────
+  // iPadOS 13+ masquerades as macOS in the UA; multi-touch exposes it.
+  const IS_MOBILE = /Android|iPhone|iPod|iPad/i.test(navigator.userAgent)
+    || (/Mac/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+
   // ── Toolbar toggle ─────────────────────────────────────
+  // Mobile: toolbar shown by default. Desktop: hidden until ☰.
   const toggleBtn = document.getElementById('toggle-btn');
-  let toolbarVisible = true;
+  let toolbarVisible = IS_MOBILE;
+  document.body.classList.toggle('toolbar-hidden', !toolbarVisible);
+  if (!IS_MOBILE) document.body.classList.add('no-mobile');
 
   toggleBtn.addEventListener('click', () => {
     toolbarVisible = !toolbarVisible;
     document.body.classList.toggle('toolbar-hidden', !toolbarVisible);
-    toggleBtn.innerHTML = toolbarVisible ? '&#x2630;' : '&#x2630;';
     requestAnimationFrame(() => fitAddon.fit());
   });
 
