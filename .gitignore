@@ -1,0 +1,12 @@
+# Service logs
+logs/
+
+# Temp files
+*.tmp
+*.bak
+ttyd_default.html
+
+# OS artifacts
+Thumbs.db
+Desktop.ini
+.DS_Store
