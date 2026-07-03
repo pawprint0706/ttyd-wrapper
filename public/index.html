@@ -429,6 +429,7 @@
     <button data-key="backtick" title="Backtick">`</button>
     <button data-key="tab" title="Tab">Tab</button>
     <button data-key="backslash" title="Backslash">\</button>
+    <button data-key="slash" title="Slash">/</button>
     <button data-key="backspace" class="w12" title="Backspace">&#x232B;</button>
     <button data-key="ins" title="Insert">Ins</button>
     <button data-key="del" title="Delete">Del</button>
@@ -780,6 +781,7 @@
     esc:       () => '\x1b',
     backtick:  (m) => m.shift ? '~' : '`',
     backslash: (m) => m.shift ? '|' : '\\',
+    slash:     (m) => m.shift ? '?' : '/',
     tab:       (m) => m.shift ? '\x1b[Z' : '\x09',
     backspace: (m) => (m.alt ? '\x1b' : '') + (m.ctrl ? '\x08' : '\x7f'),
     enter:     () => '\x0d',

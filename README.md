@@ -18,7 +18,7 @@
 | 분류 | 기능 |
 |------|------|
 | 모드 UI | 하단바 3모드 — 특수키(기본) / 설정 / 텍스트 선택. 우측 클러스터(상태등·키보드·설정·선택)로 전환 |
-| 특수키 | Esc, `` ` ``, Tab, `\`, ⌫, Enter, Ins, Del, Home, End, PgUp, PgDn, ▲▼◀▶ + Fn 레이어로 F1~F12 |
+| 특수키 | Esc, `` ` ``, Tab, `\`, `/`, ⌫, Enter, Ins, Del, Home, End, PgUp, PgDn, ▲▼◀▶ + Fn 레이어로 F1~F12 |
 | 모디파이어 | Ctrl / Alt / Shift / Win 스티키 원샷 토글 — 온스크린 특수키(CSI 조합) 및 타이핑 문자(IME·물리 키보드)와 조합. 한글 등 다글자 입력은 그대로 통과 |
 | 서버 OS 라벨 | ttyd `-t platform=…` 통지로 Alt/Win ↔ ⌥/⌘ ↔ Alt/Super 자동 표기 |
 | 설정 모드 | A−/A+ 폰트 10~32px 실시간 조절 + 터미널 재시작(2탭 확인) |
@@ -144,8 +144,8 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 1. 같은 네트워크의 브라우저에서 `http://<PC의 IP>:33322/` 접속
 2. 터미널 영역 탭 → 소프트 키보드로 일반 입력
 3. 하단 툴바 — **특수키 모드** (기본):
-   - 줄1: **Esc / ` / Tab / \ / ⌫ / Ins / Del / ⏎**
-   - 줄2: **Fn / Ctrl / Alt / Shift / Win / Home / End / PgUp / PgDn**
+   - 줄1: **Esc · ` · Tab · \ · / · ⌫ · Ins · Del · ⏎**
+   - 줄2: **Fn · Ctrl · Alt · Shift · Win · Home · End · PgUp · PgDn**
      - **Fn** — 줄1·줄2가 F1~F12로 교체 (다시 누르면 복귀)
      - **Ctrl/Alt/Shift/Win** — 스티키 원샷: 켜면 빨간색, 다음 키 입력 1회에 조합 후 자동 해제. 소프트 키보드 문자와도 조합됨 (예: Ctrl 켜고 `c` 입력 = Ctrl+C). 한글 입력은 조합하지 않고 그대로 통과
    - 줄3: **▲▼◀▶** 방향키 + 우측 클러스터

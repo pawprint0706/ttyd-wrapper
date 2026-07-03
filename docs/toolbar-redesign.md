@@ -48,7 +48,7 @@
 ### 기본 레이어
 
 ```
-줄1 │ Esc   `   Tab   \    ⌫   Ins  Del   ⏎          (8키)
+줄1 │ Esc   `   Tab   \   /   ⌫   Ins  Del   ⏎       (9키)
 줄2 │ Fn  Ctrl  Alt  Shift  Win  Home  End  PgUp  PgDn (9키)
 줄3 │ ◀   ▲   ▼   ▶        │        ●  ⌨  ⚙  ⬚      (4키 + 클러스터)
 ```
