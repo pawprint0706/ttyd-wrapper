@@ -58,6 +58,16 @@ ttyd-wrapper/
 │   ├── install-service.bat    # 윈도우 서비스 등록 (UAC 자동 승격)
 │   ├── uninstall-service.bat  # 서비스 제거
 │   └── service-launcher.ps1   # 서비스 기동 시 사용자 PATH 재구성 후 ttyd 실행
+├── linux/
+│   ├── ttyd.sh                # 수동 실행 (bash -l 릴레이)
+│   ├── install-service.sh     # systemd 사용자 유닛 설치
+│   ├── uninstall-service.sh   # 유닛 제거
+│   └── ttyd-wrapper.service   # systemd 유닛 템플릿
+├── macos/
+│   ├── ttyd.sh                # 수동 실행 (zsh -l 릴레이)
+│   ├── install-service.sh     # LaunchAgent 등록
+│   ├── uninstall-service.sh   # Agent 제거
+│   └── ttyd-wrapper.plist     # LaunchAgent 템플릿
 ├── public/
 │   ├── index.html             # 커스텀 웹 래퍼 (단일 파일, 벤더 인라인)
 │   └── vendor/                # xterm.js 원본 (참조용, 런타임 미사용)
@@ -109,6 +119,22 @@ set "SHELL_CMD=powershell.exe"
 ```
 
 수동 실행용 `bin\ttyd.bat`도 동일하게 맞춰야 한다.
+
+### macOS / Linux
+
+ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd`) OS 폴더의 스크립트를 실행한다:
+
+```bash
+./linux/install-service.sh     # Linux: systemd 사용자 유닛 (검증: WSL2 실측 통과)
+./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작)
+```
+
+- 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드
+- 포트 변경: `TTYD_PORT=8080 ./install-service.sh` 처럼 환경변수로 오버라이드
+- 미리보기: `--dry` 플래그 (실행 없이 렌더링된 유닛/plist와 명령 출력)
+- Linux 부팅 시 자동 시작: 스크립트가 `loginctl enable-linger`를 시도하며, 실패 시 안내 메시지 출력
+- 제거: 각 폴더의 `uninstall-service.sh`
+- 상세 분석: [docs/porting-analysis.md](docs/porting-analysis.md)
 
 ## 6. 이용방법
 

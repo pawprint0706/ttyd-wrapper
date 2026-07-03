@@ -1,0 +1,12 @@
+# ttyd-wrapper systemd user unit (template - rendered by install-service.sh)
+[Unit]
+Description=ttyd Web Terminal
+After=network.target
+
+[Service]
+ExecStart=__TTYD__ --writable -p __PORT__ -I "__INDEX__" --cwd "__HOME__" bash -l
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=default.target
