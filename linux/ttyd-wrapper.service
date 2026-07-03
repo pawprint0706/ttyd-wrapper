@@ -4,7 +4,7 @@ Description=ttyd Web Terminal
 After=network.target
 
 [Service]
-ExecStart=__TTYD__ --writable -p __PORT__ -I "__INDEX__" --cwd "__HOME__" bash -l
+ExecStart=__TTYD__ --writable -t platform=linux -p __PORT__ -I "__INDEX__" --cwd "__HOME__" bash -l
 Restart=on-failure
 RestartSec=3
 

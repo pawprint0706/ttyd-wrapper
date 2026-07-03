@@ -11,4 +11,4 @@ if ! command -v ttyd >/dev/null 2>&1; then
     exit 1
 fi
 
-exec ttyd --writable -p "$PORT" -I "$ROOT/public/index.html" --cwd "$HOME" zsh -l
+exec ttyd --writable -t platform=macos -p "$PORT" -I "$ROOT/public/index.html" --cwd "$HOME" zsh -l

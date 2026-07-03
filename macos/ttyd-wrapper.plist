@@ -10,6 +10,8 @@
     <array>
         <string>__TTYD__</string>
         <string>--writable</string>
+        <string>-t</string>
+        <string>platform=macos</string>
         <string>-p</string>
         <string>__PORT__</string>
         <string>-I</string>

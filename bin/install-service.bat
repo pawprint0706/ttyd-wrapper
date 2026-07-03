@@ -52,7 +52,7 @@ echo.
 if "%DRYRUN%"=="1" (
     echo [DRY RUN] Commands that would be executed:
     echo   "%NSSM%" install %SERVICE_NAME% "%PSEXE%"
-    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
     echo   "%NSSM%" set %SERVICE_NAME% AppEnvironmentExtra "TTYD_USER_SID=<your-sid>" "TTYD_USER_PROFILE=%USERPROFILE%"
     echo   "%NSSM%" set %SERVICE_NAME% AppDirectory "%BIN_DIR%"
     echo   "%NSSM%" start %SERVICE_NAME%
@@ -99,7 +99,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 "%NSSM%" install "%SERVICE_NAME%" "%PSEXE%"
 if not "%errorlevel%"=="0" ( echo [ERROR] nssm install failed & pause & exit /b 1 )
 
-"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
 "%NSSM%" set "%SERVICE_NAME%" AppDirectory "%BIN_DIR%"
 "%NSSM%" set "%SERVICE_NAME%" DisplayName "%SERVICE_DISPLAY%"
 "%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over HTTP port %PORT%"

@@ -1,1 +1,1 @@
-"%~dp0ttyd.exe" --writable -p 33322 -I "%~dp0..\public\index.html" --cwd "%USERPROFILE%" powershell.exe
+"%~dp0ttyd.exe" --writable -t platform=windows -p 33322 -I "%~dp0..\public\index.html" --cwd "%USERPROFILE%" powershell.exe
