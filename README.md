@@ -1,6 +1,7 @@
 # ttyd-wrapper
 
 **모바일 친화적인 ttyd 웹 터미널 래퍼** — Windows PowerShell을 웹 브라우저로 중계하고, 모바일에서 불가능했던 폰트 크기 조절과 특수키(방향키, Esc, Tab, Ctrl 조합 등) 입력을 웹 UI로 제공한다.
+
 **다양한 플랫폼 지원** — Windows, Linux, MacOS 지원. (MacOS의 경우 실기기 테스트 진행 예정)
 
 ## 1. 프로젝트 개요
