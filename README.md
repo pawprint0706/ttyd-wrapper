@@ -126,7 +126,7 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 
 ```bash
 ./linux/install-service.sh     # Linux: systemd 사용자 유닛 (검증: WSL2 실측 통과)
-./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작)
+./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작, 실측 테스트 예정 - plist 정적 검증 완료)
 ```
 
 - 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드

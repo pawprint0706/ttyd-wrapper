@@ -87,6 +87,21 @@ ttyd-wrapper/
 
 > 레포 내 파일명은 접미어 없이 폴더로 구분하며, 설치 시 시스템 규약 위치·명칭으로 복사된다 — systemd: `~/.config/systemd/user/ttyd-wrapper.service`, launchd: `~/Library/LaunchAgents/com.pawprint0706.ttyd-wrapper.plist` (역도메인 규약).
 
-## 7. 요약
+## 7. 구현 및 검증 현황
 
-코어 자산(`public/index.html`)이 이미 OS 중립이므로 포팅의 본질은 **서비스 래핑 재작성**뿐이며, 그마저 Windows판보다 얇다. 동일한 모바일 경험을 보장하면서 총 1.5일 규모로 완료 가능하다.
+§6 산출물은 **전부 구현 완료**되어 레포에 반영됐다 (`linux/`, `macos/` 폴더).
+
+| 플랫폼 | 상태 | 검증 내용 |
+|--------|------|-----------|
+| Linux | ✅ **WSL2 환경 테스트 완료** | 실 systemd 환경에서 E2E — 설치 → 유닛 기동 → HTTP 200 → WS 핸드셰이크로 사용자 권한 bash 확인(`whoami=사용자`) → 언인스톨 후 유닛·포트 정리 확인. `TTYD_PORT` 오버라이드 동작 확인 |
+| macOS | ⏳ **실측 테스트 예정** | 정적 검증 완료 — `--dry` 렌더링 결과 plist가 well-formed XML이며 플레이스홀더 치환·ProgramArguments 정확. 실기 맥에서 `brew install ttyd && ./macos/install-service.sh` 1회 확인 필요 |
+
+추가 반영 사항:
+
+- `.gitattributes`로 `*.sh`/`*.service`/`*.plist`를 LF 고정 — Windows 체크아웃발 CRLF 오염 차단
+- 셸 스크립트 실행 비트를 git 인덱스에 등록
+- 모든 스크립트에 `--dry` 미리보기와 `TTYD_PORT` 환경변수 오버라이드 지원
+
+## 8. 요약
+
+코어 자산(`public/index.html`)이 이미 OS 중립이므로 포팅의 본질은 **서비스 래핑 재작성**뿐이며, 그마저 Windows판보다 얇다. 동일한 모바일 경험을 보장하며, Linux는 WSL2에서 실측 검증까지 마쳤다.

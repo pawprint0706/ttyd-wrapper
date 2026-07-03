@@ -296,6 +296,8 @@ ttyd-wrapper/
 │   ├── install-service.bat    # 윈도우 서비스 등록 (관리자 자동 승격)
 │   ├── uninstall-service.bat  # 서비스 제거
 │   └── service-launcher.ps1   # 기동 시 레지스트리에서 사용자 PATH 재구성 후 ttyd 실행
+├── linux/                     # Linux 포팅 (systemd 사용자 유닛, WSL2 테스트 완료)
+├── macos/                     # macOS 포팅 (LaunchAgent, 실측 테스트 예정)
 ├── public/
 │   ├── index.html             # 커스텀 웹 래퍼 (단일 파일, 벤더 인라인)
 │   └── vendor/                # xterm.js 원본 (참조용, 런타임 미사용)
