@@ -2,7 +2,7 @@
 
 **모바일 친화적인 ttyd 웹 터미널 래퍼** — Windows PowerShell을 웹 브라우저로 중계하고, 모바일에서 불가능했던 폰트 크기 조절과 특수키(방향키, Esc, Tab, Ctrl 조합 등) 입력을 웹 UI로 제공한다.
 
-**다양한 플랫폼 지원** — Windows, Linux, MacOS 지원. (MacOS의 경우 실기기 테스트 진행 예정)
+**다양한 플랫폼 지원** — Windows, Linux, macOS 지원. (전 플랫폼 실측 검증 완료)
 
 ## 1. 프로젝트 개요
 
@@ -129,7 +129,7 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 
 ```bash
 ./linux/install-service.sh     # Linux: systemd 사용자 유닛 (검증: WSL2 실측 통과)
-./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작, 실측 테스트 예정 - plist 정적 검증 완료)
+./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작, 검증: 실기 맥 통과)
 ```
 
 - 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드

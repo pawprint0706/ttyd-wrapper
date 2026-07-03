@@ -94,7 +94,7 @@ ttyd-wrapper/
 | 플랫폼 | 상태 | 검증 내용 |
 |--------|------|-----------|
 | Linux | ✅ **WSL2 환경 테스트 완료** | 실 systemd 환경에서 E2E — 설치 → 유닛 기동 → HTTP 200 → WS 핸드셰이크로 사용자 권한 bash 확인(`whoami=사용자`) → 언인스톨 후 유닛·포트 정리 확인. `TTYD_PORT` 오버라이드 동작 확인 |
-| macOS | ⏳ **실측 테스트 예정** | 정적 검증 완료 — `--dry` 렌더링 결과 plist가 well-formed XML이며 플레이스홀더 치환·ProgramArguments 정확. 실기 맥에서 `brew install ttyd && ./macos/install-service.sh` 1회 확인 필요 |
+| macOS | ✅ **실기 맥 테스트 완료** | Apple Silicon 실기에서 E2E — `install-service.sh` 설치 → LaunchAgent 로드(`launchctl list` PID 확인) → HTTP 200 → WS 접속 시 사용자 권한 `zsh -l` 스폰·종료 확인(ttyd 로그). `-t platform=macos` 라벨 전달 확인 |
 
 추가 반영 사항:
 
@@ -104,4 +104,4 @@ ttyd-wrapper/
 
 ## 8. 요약
 
-코어 자산(`public/index.html`)이 이미 OS 중립이므로 포팅의 본질은 **서비스 래핑 재작성**뿐이며, 그마저 Windows판보다 얇다. 동일한 모바일 경험을 보장하며, Linux는 WSL2에서 실측 검증까지 마쳤다.
+코어 자산(`public/index.html`)이 이미 OS 중립이므로 포팅의 본질은 **서비스 래핑 재작성**뿐이며, 그마저 Windows판보다 얇다. 동일한 모바일 경험을 보장하며, Linux(WSL2)·macOS(실기) 양 플랫폼 모두 실측 검증을 마쳤다.
