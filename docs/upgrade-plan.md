@@ -1,7 +1,7 @@
 # 업그레이드 계획 — 세션 지속 · 다중 세션 · 로그인 · HTTPS · PWA
 
 대상: `public/index.html` + 런처 6곳. (Scope B에서는 리버스 프록시 계층 없음.)
-상태: **검토 완료 / 구현 미착수** (2026-07-04). **채택 범위: Scope B — 축소 실장안(§3.5).** 전체 판정(§2~§4)은 실현 상한이며, 실제 구현은 §3.5로 좁힌다. 구현 착수 전 §8 미결 결정사항(특히 D. Windows)을 먼저 정해야 한다.
+상태: **검토 완료 / 구현 미착수** (2026-07-04). **채택 범위: Scope B — 축소 실장안(§3.5).** 전체 판정(§2~§4)은 실현 상한이며, 실제 구현은 §3.5로 좁힌다. **§8 결정 전부 확정(D=b) — 남은 것은 구현(PB1~PB3)뿐.**
 전제: 번들 ttyd **1.7.7-40e79c7** 옵션 셋 실측(`ttyd.exe --help`), 현행 클라이언트/런처 코드 실독 기준.
 
 ## 1. 목표
@@ -94,8 +94,8 @@ graph LR
 
 | 기능 | Linux | macOS | Windows |
 |---|---|---|---|
-| 단일 세션 유지 | ✅ tmux | ✅ tmux | ❌ 잔존 관문(§8-D) |
-| 다기기 미러링 | ✅ 공짜 | ✅ 공짜 | 세션유지에 종속 |
+| 단일 세션 유지 | ✅ tmux | ✅ tmux | ❌ 미제공(D=b, 현행 비영속) |
+| 다기기 미러링 | ✅ 공짜 | ✅ 공짜 | ❌ 미제공(기기별 독립 세션) |
 | 로그인(단일·다기기) | ✅ `-c` | ✅ `-c` | ✅ `-c` |
 | HTTPS(네이티브 + ACME 인증서) | ✅ | ✅ | ✅ |
 | PWA(Android 수동설치·standalone) | ✅ | ✅ | ✅ |
@@ -107,11 +107,11 @@ graph LR
 | PB1 | HTTPS(네이티브 `-S/-C/-K`, ACME 인증서) + basic auth(`-c`) | 도메인·인증서 | 전 |
 | PB2 | PWA 인라인 — manifest data URI + 512 아이콘, Android 수동설치·standalone | PB1 | 전 |
 | PB3 | 세션 유지 — 스폰 명령을 `tmux new -A -s main`으로 교체(단일·미러링) | — | Unix |
-| P-Win | Windows 세션 유지 방향 결정 후 별건 | §8-D | Windows |
+| (Windows) | 세션 유지·미러링 미제공(D=b 확정) — 로그인·HTTPS·PWA는 전 항목 적용 | — | Windows |
 
 - PB1·PB2·PB3 상호 독립(병렬 가능). 손댈 지점은 §4.1(런처 표)·§4.3·§4.4·§4.5와 동일하되 SW·프록시 항목은 제외.
 
-**유일한 잔존 관문**: Windows 단일 세션 유지. 축소로도 해소되지 않는다(원인은 세션 개수와 무관) → §8-D에서 방향 확정 필요. Linux/macOS만 대상이면 Scope B는 전 항목 실현 가능하며 프록시가 필요 없다.
+**Windows 방침 (D=b 확정)**: 세션 유지·미러링(항목 1·2)은 **미제공**(현행 비영속 유지) — 이유는 §8-D. 대신 로그인·HTTPS·PWA(항목 3·4·5)는 Windows에도 전부 적용되어 현행 대비 순수 상향. Windows에서도 세션 유지·미러링·완전 PWA까지 원하면 별도 **Scope C(부록 A)** 로 전환해야 한다. Linux/macOS는 5개 항목 전부 실현하며 프록시가 필요 없다.
 
 ## 4. 항목별 상세 계획
 
@@ -264,16 +264,13 @@ graph LR
 - 무료 인증서/DDNS: Let's Encrypt·ZeroSSL(`acme.sh`/certbot, DNS-01 무포트 발급) + DuckDNS·No-IP 등 DDNS. 공인 CA는 순수 IP에 미발급.
 - 현행 코드: `public/index.html`(핸드셰이크 594-633, wss 615, KEYDEFS 780-807, setMode 899-914, init 1133), 런처 6곳(§4.1 표).
 
-## 8. 미결 결정사항 (구현 착수 전 확정)
+## 8. 결정사항 (전부 확정 — 2026-07-04)
 
 - **A. 세션 공유 정책** — ✅ **Scope B 확정: 미러링**(단일 고정 세션 공유). 리사이즈 경합은 tmux `window-size`로 완화(§3.5).
 - **B. 리버스 프록시 도입** — ✅ **Scope B 확정: 미도입.** 신뢰 인증서는 프록시 없이 ACME 클라이언트로 조달(→ C).
 - **C. 인증서 전략** — 공개+PWA 전제 시 **DDNS 도메인 + `acme.sh`/`certbot`의 무료 인증서(Let's Encrypt/ZeroSSL) cert-only 발급·자동 갱신** 후 ttyd `-C/-K` 주입(상세 절차 §3.5 "PWA 정상 이용 전제"). 순수 IP엔 발급 불가. 도메인·인증서 미확보 시 자체서명만 가능하고 **PWA 설치 제한**(홈화면 바로가기 수준).
-- **D. Windows 세션 유지 방향** — ⚠️ **미해결(유일 잔존 관문).** 택1:
-  - (a) 셸을 **WSL bash + tmux**로 교체(PowerShell 포기, 유닉스 경로와 통일).
-  - (a′) PowerShell 유지 + **WSL/MSYS2 tmux가 `powershell.exe`를 interop로 붙잡아 지속**(네이티브 PS 보존, PTY interop 렌더링 이질·설정 난도 ↑, 실험적).
-  - (b) **Windows 비영속 유지** — 세션 유지는 Linux/macOS 전용 기능으로 한정.
-  - (c) ConPTY 핸들을 붙잡는 **자체 지속 백엔드 신규 개발** — Scope B엔 과대. 상세 설계는 **부록 A(Scope C)**. Windows에서 세션유지 + 완전 PWA + 깔끔한 미러링을 모두 여는 유일 경로.
+- **D. Windows 세션 유지 방향** — ✅ **확정: (b) Windows 비영속 유지.** 세션 유지·미러링(항목 1·2)은 Windows 미제공, Linux/macOS 전용으로 한정. Windows도 로그인·HTTPS·PWA(항목 3·4·5)는 전부 적용. 이로써 §8 미결 없음 — 남은 것은 구현.
+  - 미채택 대안(기록): (a) 셸을 WSL bash+tmux로 교체(PowerShell 포기), (a′) PowerShell을 WSL/MSYS2 tmux로 interop 지속(실험적·검증 필요), (c) 자체 지속 백엔드 — Windows에서 세션유지+완전 PWA+미러링을 모두 여는 유일 경로(상세 **부록 A / Scope C**).
 - **E. 다중 세션 UI 수준** — ✅ **Scope B 확정: 다중 세션 미구현**(단일 세션만).
 
 ## 부록 A. Scope C — 자체 지속 백엔드 (Windows 완전 지원 경로)
