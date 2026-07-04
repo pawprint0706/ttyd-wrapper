@@ -172,6 +172,8 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 - [ ] **쉘 선택 UI** — PowerShell / cmd / WSL 전환
 - [ ] **PWA** — 홈 화면 설치, 전체 화면 모드
 
+상세 실현성 판정·구현 경로·미결 결정사항: [docs/upgrade-plan.md](docs/upgrade-plan.md)
+
 **구현 계획 없음**: 파일 전송(trzsz/ZMODEM), 커스텀 키 매크로
 
 ## 8. 라이선스 및 크레딧
