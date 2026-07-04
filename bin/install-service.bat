@@ -17,6 +17,10 @@ set "SERVICE_DISPLAY=ttyd Web Terminal"
 set "PORT=33322"
 set "SHELL_CWD=%USERPROFILE%"
 set "SHELL_CMD=powershell.exe"
+:: Optional: basic auth (user:pass) and HTTPS. Leave blank to disable.
+set "CRED="
+set "SSL_CERT="
+set "SSL_KEY="
 
 :: ---------- Path resolution ----------
 set "BIN_DIR=%~dp0"
@@ -31,6 +35,15 @@ set "LOG_DIR=%ROOT%\logs"
 
 set "DRYRUN=0"
 if /i "%~1"=="/dry" set "DRYRUN=1"
+
+:: ---------- Optional auth / SSL flags ----------
+set "OPTS="
+set "SCHEME=http"
+if defined CRED set "OPTS=%OPTS% -c %CRED%"
+if defined SSL_CERT if defined SSL_KEY (
+    set "OPTS=%OPTS% -S -C "%SSL_CERT%" -K "%SSL_KEY%""
+    set "SCHEME=https"
+)
 
 :: ---------- Sanity checks ----------
 if not exist "%NSSM%"     ( echo [ERROR] nssm.exe not found: %NSSM% & pause & exit /b 1 )
@@ -47,12 +60,13 @@ echo   Index   : %INDEX%
 echo   Port    : %PORT%
 echo   Shell   : %SHELL_CMD% (cwd: %SHELL_CWD%)
 echo   Logs    : %LOG_DIR%
+echo   Auth    : cred=[%CRED%]  scheme=%SCHEME%
 echo.
 
 if "%DRYRUN%"=="1" (
     echo [DRY RUN] Commands that would be executed:
     echo   "%NSSM%" install %SERVICE_NAME% "%PSEXE%"
-    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
     echo   "%NSSM%" set %SERVICE_NAME% AppEnvironmentExtra "TTYD_USER_SID=<your-sid>" "TTYD_USER_PROFILE=%USERPROFILE%"
     echo   "%NSSM%" set %SERVICE_NAME% AppDirectory "%BIN_DIR%"
     echo   "%NSSM%" start %SERVICE_NAME%
@@ -99,7 +113,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 "%NSSM%" install "%SERVICE_NAME%" "%PSEXE%"
 if not "%errorlevel%"=="0" ( echo [ERROR] nssm install failed & pause & exit /b 1 )
 
-"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
 "%NSSM%" set "%SERVICE_NAME%" AppDirectory "%BIN_DIR%"
 "%NSSM%" set "%SERVICE_NAME%" DisplayName "%SERVICE_DISPLAY%"
 "%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over HTTP port %PORT%"
@@ -134,12 +148,12 @@ if "%errorlevel%"=="0" (
     echo.
     echo [OK] Service is RUNNING.
     where curl >nul 2>&1 && (
-        for /f %%h in ('curl -s -m 5 -o NUL -w "%%{http_code}" http://localhost:%PORT%/') do (
-            if "%%h"=="200" ( echo [OK] HTTP check passed: http://localhost:%PORT%/ ) else ( echo [WARN] HTTP check returned %%h )
+        for /f %%h in ('curl -sk -m 5 -o NUL -w "%%{http_code}" %SCHEME%://localhost:%PORT%/') do (
+            if "%%h"=="200" ( echo [OK] HTTP check passed: %SCHEME%://localhost:%PORT%/ ) else ( echo [WARN] HTTP check returned %%h )
         )
     )
     echo.
-    echo Access from mobile: http://YOUR_PC_IP:%PORT%/
+    echo Access from mobile: %SCHEME%://YOUR_PC_IP:%PORT%/
 ) else (
     echo [ERROR] Service failed to start. Check %LOG_DIR%\ttyd.log
     pause

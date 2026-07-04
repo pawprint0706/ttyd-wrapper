@@ -1,7 +1,7 @@
 # 업그레이드 계획 — 세션 지속 · 다중 세션 · 로그인 · HTTPS · PWA
 
 대상: `public/index.html` + 런처 6곳. (Scope B에서는 리버스 프록시 계층 없음.)
-상태: **검토 완료 / 구현 미착수** (2026-07-04). **채택 범위: Scope B — 축소 실장안(§3.5).** 전체 판정(§2~§4)은 실현 상한이며, 실제 구현은 §3.5로 좁힌다. **§8 결정 전부 확정(D=b) — 남은 것은 구현(PB1~PB3)뿐.**
+상태: **구현 완료 — Scope B(PB1·PB2·PB3)** (2026-07-04). 전체 판정(§2~§4)은 실현 상한이며, 실제 구현은 §3.5로 좁혔다. 구현 현황·검증은 **§3.6**. §8 결정 전부 확정(D=b) — Windows 세션유지는 계획대로 미구현.
 전제: 번들 ttyd **1.7.7-40e79c7** 옵션 셋 실측(`ttyd.exe --help`), 현행 클라이언트/런처 코드 실독 기준.
 
 ## 1. 목표
@@ -106,12 +106,35 @@ graph LR
 |---|---|---|---|
 | PB1 | HTTPS(네이티브 `-S/-C/-K`, ACME 인증서) + basic auth(`-c`) | 도메인·인증서 | 전 |
 | PB2 | PWA 인라인 — manifest data URI + 512 아이콘, Android 수동설치·standalone | PB1 | 전 |
-| PB3 | 세션 유지 — 스폰 명령을 `tmux new -A -s main`으로 교체(단일·미러링) | — | Unix |
+| PB3 | 세션 유지 — 스폰 명령을 `tmux new -A -s ttyd`로 교체(단일·미러링) | — | Unix |
 | (Windows) | 세션 유지·미러링 미제공(D=b 확정) — 로그인·HTTPS·PWA는 전 항목 적용 | — | Windows |
 
 - PB1·PB2·PB3 상호 독립(병렬 가능). 손댈 지점은 §4.1(런처 표)·§4.3·§4.4·§4.5와 동일하되 SW·프록시 항목은 제외.
 
 **Windows 방침 (D=b 확정)**: 세션 유지·미러링(항목 1·2)은 **미제공**(현행 비영속 유지) — 이유는 §8-D. 대신 로그인·HTTPS·PWA(항목 3·4·5)는 Windows에도 전부 적용되어 현행 대비 순수 상향. Windows에서도 세션 유지·미러링·완전 PWA까지 원하면 별도 **Scope C(부록 A)** 로 전환해야 한다. Linux/macOS는 5개 항목 전부 실현하며 프록시가 필요 없다.
+
+## 3.6 구현 현황 (Scope B 완료 — 2026-07-04)
+
+PB1·PB2·PB3 구현·검증 완료. Windows 세션유지(D=b)는 계획대로 미구현.
+
+**PB1 — 로그인(basic auth) + HTTPS (전 플랫폼)**
+- 런처에 opt-in 배선. Windows: `bin/ttyd.bat`·`bin/install-service.bat`의 `CRED`/`SSL_CERT`/`SSL_KEY`. Unix: `TTYD_CRED`/`TTYD_SSL_CERT`/`TTYD_SSL_KEY` 환경변수.
+- 기본값 비활성 → 기존 LAN-HTTP 동작 보존. cred 지정 시 `-c`, cert+key 둘 다 지정 시 `-S -C -K`. 설치 스크립트의 HTTP verify는 scheme 자동 대응.
+- **검증**: 번들 ttyd `-c`로 실측 — 무자격 **401** / 정자격 **200**. `install-service.bat /dry` 및 `install-service.sh --dry`에서 `-c "…" -S -C "…" -K "…"` 정확 합성 확인.
+
+**PB2 — PWA 인라인 (전 플랫폼)**
+- `public/index.html` head에 web manifest를 `data:application/manifest+json;base64,…`로 인라인 + 192/512 PNG 아이콘(`icon.png`에서 생성, data URI) + `display:standalone`·theme/background color.
+- **검증(실측 상향)**: 헤드리스 Chrome `Page.getAppManifest` → **errors 없음**(start_url·data-URI 아이콘 포함 무오류 파싱), 192/512 아이콘 실제 디코드 확인. §4.5에서 우려한 "data-URI 아이콘 실패"보다 결과 양호 — Chrome이 인라인 manifest를 유효 처리. ttyd 서빙 시 HTTP 200·manifest 포함 확인.
+- **잔존 한계**: 실제 홈화면 설치(WebAPK)는 **HTTPS(신뢰 인증서)+실기기**에서만 성립(§3.5 배포 안내). 오프라인 캐싱·자동 설치 배너는 SW 실파일 서빙 불가로 미지원(Scope C 필요). iOS 깨끗한 아이콘도 구조적 미지원.
+
+**PB3 — 세션 유지 (Linux/macOS)**
+- 수동 런처(`linux/ttyd.sh`·`macos/ttyd.sh`)와 서비스(installer 렌더)가 tmux 감지 시 스폰 명령을 `tmux new -A -s ttyd`로 교체 → 백그라운드 지속 + 다기기 미러링. tmux 부재 또는 `TTYD_TMUX=0`이면 로그인 셸 폴백.
+- systemd 유닛은 `ExecStart=<ttyd> <ARGS>` 단일 렌더, LaunchAgent는 `sh -c 'exec …'` 래퍼로 가변 인자 수용.
+- **검증**: `--dry`로 유닛/plist 렌더 확인(tmux stub·auth·SSL 오버라이드 반영). 실 systemd/launchd 기동은 대상 OS에서 확인 필요(호스트가 Windows).
+
+**Windows (D=b)**: 세션유지·미러링 미구현(현행 비영속 유지). 로그인·HTTPS·PWA는 적용됨. 확장 원하면 부록 A(Scope C).
+
+**변경 파일**: `public/index.html`, `bin/ttyd.bat`, `bin/install-service.bat`, `linux/ttyd.sh`, `linux/ttyd-wrapper.service`, `linux/install-service.sh`, `macos/ttyd.sh`, `macos/ttyd-wrapper.plist`, `macos/install-service.sh`.
 
 ## 4. 항목별 상세 계획
 

@@ -11,6 +11,10 @@ set -euo pipefail
 
 SERVICE_NAME="ttyd-wrapper"
 PORT="${TTYD_PORT:-33322}"
+CRED="${TTYD_CRED:-}"
+SSL_CERT="${TTYD_SSL_CERT:-}"
+SSL_KEY="${TTYD_SSL_KEY:-}"
+SESSION="${TTYD_SESSION:-ttyd}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -39,11 +43,24 @@ if [[ -z "$TTYD_BIN" ]]; then
     fi
 fi
 
+# ---------- Compose ttyd args (auth / SSL / persistent session) ----------
+SCHEME="http"
+if [[ "${TTYD_TMUX:-1}" != "0" ]] && command -v tmux >/dev/null 2>&1; then
+    CMD="tmux new -A -s $SESSION"
+else
+    CMD="bash -l"
+fi
+ARGS="--writable -t platform=linux"
+[[ -n "$CRED" ]] && ARGS="$ARGS -c \"$CRED\""
+if [[ -n "$SSL_CERT" && -n "$SSL_KEY" ]]; then
+    ARGS="$ARGS -S -C \"$SSL_CERT\" -K \"$SSL_KEY\""
+    SCHEME="https"
+fi
+ARGS="$ARGS -p $PORT -I \"$INDEX\" --cwd \"$HOME\" $CMD"
+
 render() {
     sed -e "s|__TTYD__|$TTYD_BIN|g" \
-        -e "s|__PORT__|$PORT|g" \
-        -e "s|__INDEX__|$INDEX|g" \
-        -e "s|__HOME__|$HOME|g" \
+        -e "s|__ARGS__|$ARGS|g" \
         "$TEMPLATE"
 }
 
@@ -53,6 +70,8 @@ echo "  Unit  : $UNIT_FILE"
 echo "  ttyd  : $TTYD_BIN"
 echo "  Index : $INDEX"
 echo "  Port  : $PORT"
+echo "  Cmd   : $CMD"
+echo "  Auth  : $([[ -n "$CRED" ]] && echo enabled || echo none)   SSL: $SCHEME"
 echo
 
 if [[ "$DRY" == "1" ]]; then
@@ -95,15 +114,15 @@ if systemctl --user is-active --quiet "$SERVICE_NAME"; then
     echo
     echo "[OK] Service is running."
     if command -v curl >/dev/null 2>&1; then
-        code="$(curl -s -m 5 -o /dev/null -w '%{http_code}' "http://localhost:$PORT/" || true)"
+        code="$(curl -sk -m 5 -o /dev/null -w '%{http_code}' "$SCHEME://localhost:$PORT/" || true)"
         if [[ "$code" == "200" ]]; then
-            echo "[OK] HTTP check passed: http://localhost:$PORT/"
+            echo "[OK] HTTP check passed: $SCHEME://localhost:$PORT/"
         else
             echo "[WARN] HTTP check returned: $code"
         fi
     fi
     echo
-    echo "Access from mobile: http://<this-machine-ip>:$PORT/"
+    echo "Access from mobile: $SCHEME://<this-machine-ip>:$PORT/"
 else
     echo "[ERROR] Service failed to start. Logs:" >&2
     echo "        journalctl --user -u $SERVICE_NAME -n 50" >&2

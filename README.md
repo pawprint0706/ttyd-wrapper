@@ -121,9 +121,14 @@ bin\ttyd.bat
 set "PORT=33322"
 set "SHELL_CWD=%USERPROFILE%"
 set "SHELL_CMD=powershell.exe"
+set "CRED="                     :: 로그인: user:pass  (빈 값 = 비활성)
+set "SSL_CERT="                 :: HTTPS: cert+key 둘 다 지정 시 활성
+set "SSL_KEY="
 ```
 
 수동 실행용 `bin\ttyd.bat`도 동일하게 맞춰야 한다.
+
+> **로그인·HTTPS**: `CRED`(basic auth)는 자격증명이 평문 전송되므로 **반드시 HTTPS(`SSL_CERT`/`SSL_KEY`)와 함께** 쓴다. 단일 계정으로 여러 기기 동시접속 가능. 공용망 공개 시 도메인+무료 인증서(Let's Encrypt/DDNS) 발급 절차는 [docs/upgrade-plan.md](docs/upgrade-plan.md) §3.5 참조.
 
 ### macOS / Linux
 
@@ -136,6 +141,8 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 
 - 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드
 - 포트 변경: `TTYD_PORT=8080 ./install-service.sh` 처럼 환경변수로 오버라이드
+- 로그인/HTTPS/세션: `TTYD_CRED=user:pass`, `TTYD_SSL_CERT=… TTYD_SSL_KEY=…`, `TTYD_SESSION=이름`, `TTYD_TMUX=0`(지속 끄기) 환경변수로 오버라이드
+- **세션 유지(tmux)**: tmux가 설치돼 있으면 자동으로 `tmux new -A -s ttyd`로 기동 — 연결이 끊겨도 셸이 살아있고 재접속 시 복원, 다기기 동시접속은 같은 세션 미러링. 미설치 시 로그인 셸로 폴백
 - 미리보기: `--dry` 플래그 (실행 없이 렌더링된 유닛/plist와 명령 출력)
 - Linux 부팅 시 자동 시작: 스크립트가 `loginctl enable-linger`를 시도하며, 실패 시 안내 메시지 출력
 - 제거: 각 폴더의 `uninstall-service.sh`
@@ -158,7 +165,7 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
    - **●** — 연결 상태 (녹색 = 연결됨, 적색 = 재연결 중)
 5. 터미널 우측 하단 **☰** — 툴바 접기/펴기. **모바일**(Android/iOS/iPadOS)은 툴바가 기본 표시, **PC**는 기본 숨김(☰로 열기)
 
-> **참고 — 세션 동작**: 브라우저 접속마다 **독립된 PowerShell 프로세스**가 스폰된다 (실측 검증: 동시 접속 2개 → 서로 다른 PID). 즉 여러 기기에서 동시에 붙어도 서로 간섭하지 않는다. 단, 연결이 끊기면 해당 프로세스는 종료되므로 **세션은 유지되지 않는다**.
+> **참고 — 세션 동작**: **Windows**는 접속마다 **독립 PowerShell**을 스폰한다(동시 접속 시 서로 다른 PID, 상호 간섭 없음). 연결이 끊기면 그 프로세스는 종료되어 **세션 비영속** — 설계상 Windows 한정 결정([docs/upgrade-plan.md](docs/upgrade-plan.md) §8-D). **Linux/macOS**는 tmux 기동 시 **세션이 백그라운드로 유지**되어 재접속에 복원되고, 여러 기기가 붙으면 **같은 세션을 미러링**한다.
 >
 > **참고 — Paste 버튼**: Clipboard API는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작한다. LAN IP로 HTTP 접속 시 Paste 버튼은 브라우저 종류와 무관하게 동작하지 않는다 — 이때는 터미널에 포커스 후 **소프트 키보드의 네이티브 붙여넣기**(길게 눌러 붙여넣기)를 사용하면 된다. Copy는 폴백(`execCommand`)으로 HTTP에서도 동작한다.
 >
@@ -166,11 +173,11 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 
 ## 7. 추후 개발 예정
 
-- [ ] **인증** — ttyd `-c user:pass` 기본 인증 연동 및 서비스 스크립트 옵션화
-- [ ] **HTTPS** — `-S/-C/-K` SSL 옵션 지원 (공용망 노출 시 필수). 적용 시 Paste 버튼도 모든 브라우저에서 활성화됨 (iOS Safari는 시스템 확인 팝업 추가)
-- [ ] **세션 유지** — 현재 연결이 끊기면 PowerShell 프로세스가 종료됨 (모바일 브라우저 백그라운드 전환 시 작업 유실). 재접속 시 세션 복원을 위한 tmux 유사 레이어 검토
+- [x] **인증** — ttyd `-c user:pass` basic auth를 런처에 옵션화(`CRED`/`TTYD_CRED`). 단일 계정·다기기 동시접속. **HTTPS 동반 필수**
+- [x] **HTTPS** — `-S/-C/-K` SSL을 런처에 옵션화(`SSL_CERT`·`SSL_KEY` / `TTYD_SSL_CERT`·`TTYD_SSL_KEY`). 적용 시 Paste 버튼도 전 브라우저 활성
+- [x] **세션 유지** — **Linux/macOS: tmux 백그라운드 세션 + 다기기 미러링**(자동, `TTYD_TMUX=0`로 해제). **Windows: 미지원**(ConPTY 재부착 레이어 부재 — §8-D·부록 A)
 - [ ] **쉘 선택 UI** — PowerShell / cmd / WSL 전환
-- [ ] **PWA** — 홈 화면 설치, 전체 화면 모드
+- [x] **PWA** — 인라인 web manifest(standalone·아이콘 192/512·theme) 임베드(Chrome 파싱 무오류 확인). **홈 화면 설치는 HTTPS(신뢰 인증서)+실기기 필요**; 오프라인·자동 설치 배너는 SW 서빙 불가로 미지원(§4.5·§3.5)
 
 상세 실현성 판정·구현 경로·미결 결정사항: [docs/upgrade-plan.md](docs/upgrade-plan.md)
 

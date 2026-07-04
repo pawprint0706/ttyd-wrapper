@@ -8,18 +8,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>__TTYD__</string>
-        <string>--writable</string>
-        <string>-t</string>
-        <string>platform=macos</string>
-        <string>-p</string>
-        <string>__PORT__</string>
-        <string>-I</string>
-        <string>__INDEX__</string>
-        <string>--cwd</string>
-        <string>__HOME__</string>
-        <string>zsh</string>
-        <string>-l</string>
+        <string>/bin/sh</string>
+        <string>-c</string>
+        <string>exec __CMDLINE__</string>
     </array>
 
     <key>RunAtLoad</key>
