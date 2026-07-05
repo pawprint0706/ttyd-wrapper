@@ -42,8 +42,12 @@ DRY=0
 [[ -f "$TEMPLATE" ]] || { echo "[ERROR] plist template not found: $TEMPLATE" >&2; exit 1; }
 
 # ---------- Detect what is installed ----------
+# Absolute paths are required: launchd runs agents with a minimal PATH
+# (/usr/bin:/bin:/usr/sbin:/sbin), so ttyd's execvp() cannot find bare
+# command names installed under /opt/homebrew/bin.
 TTYD_BIN="$(command -v ttyd || true)"
-HAVE_TMUX=0; command -v tmux >/dev/null 2>&1 && HAVE_TMUX=1
+TMUX_BIN="$(command -v tmux || true)"
+HAVE_TMUX=0; [[ -n "$TMUX_BIN" ]] && HAVE_TMUX=1
 
 # ---------- Feature selection ----------
 ask_yn() {  # $1=prompt  $2=default(Y|N) -> returns 0 for yes
@@ -96,6 +100,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     if [[ "$DRY" == "1" ]]; then
         echo "[DRY] missing package(s): ${missing[*]} (a real install would stop here)"
         [[ -z "$TTYD_BIN" ]] && TTYD_BIN="/opt/homebrew/bin/ttyd"
+        [[ -z "$TMUX_BIN" ]] && TMUX_BIN="/opt/homebrew/bin/tmux"
     else
         echo "[ERROR] Required package(s) not installed for your choices: ${missing[*]}" >&2
         echo "        Install them first, then re-run this installer:" >&2
@@ -121,7 +126,7 @@ fi
 
 # ---------- Compose ttyd command line from the chosen features ----------
 SCHEME="http"
-if [[ "$ENABLE_TMUX" == "1" ]]; then CMD="tmux new -A -s $SESSION"; else CMD="zsh -l"; fi
+if [[ "$ENABLE_TMUX" == "1" ]]; then CMD="\"$TMUX_BIN\" new -A -s $SESSION"; else CMD="/bin/zsh -l"; fi
 AUTH=""
 [[ "$ENABLE_AUTH" == "1" && -n "$CRED" ]] && AUTH=" -c \"$CRED\""
 SSL=""

@@ -40,8 +40,11 @@ DRY=0
 [[ -f "$TEMPLATE" ]] || { echo "[ERROR] unit template not found: $TEMPLATE" >&2; exit 1; }
 
 # ---------- Detect what is installed ----------
+# Absolute paths: the systemd unit PATH may not include user-local
+# prefixes (~/.local/bin, linuxbrew), so ttyd's execvp() needs full paths.
 TTYD_BIN="$(command -v ttyd || true)"
-HAVE_TMUX=0; command -v tmux >/dev/null 2>&1 && HAVE_TMUX=1
+TMUX_BIN="$(command -v tmux || true)"
+HAVE_TMUX=0; [[ -n "$TMUX_BIN" ]] && HAVE_TMUX=1
 
 # ---------- Feature selection ----------
 ask_yn() {  # $1=prompt  $2=default(Y|N) -> returns 0 for yes
@@ -94,6 +97,7 @@ if [[ ${#missing[@]} -gt 0 ]]; then
     if [[ "$DRY" == "1" ]]; then
         echo "[DRY] missing package(s): ${missing[*]} (a real install would stop here)"
         [[ -z "$TTYD_BIN" ]] && TTYD_BIN="/usr/bin/ttyd"
+        [[ -z "$TMUX_BIN" ]] && TMUX_BIN="/usr/bin/tmux"
     else
         echo "[ERROR] Required package(s) not installed for your choices: ${missing[*]}" >&2
         echo "        Install them first, then re-run this installer:" >&2
@@ -120,7 +124,7 @@ fi
 
 # ---------- Compose ttyd args from the chosen features ----------
 SCHEME="http"
-if [[ "$ENABLE_TMUX" == "1" ]]; then CMD="tmux new -A -s $SESSION"; else CMD="bash -l"; fi
+if [[ "$ENABLE_TMUX" == "1" ]]; then CMD="\"$TMUX_BIN\" new -A -s $SESSION"; else CMD="/bin/bash -l"; fi
 ARGS="--writable -t platform=linux"
 [[ "$ENABLE_AUTH" == "1" && -n "$CRED" ]] && ARGS="$ARGS -c \"$CRED\""
 if [[ "$ENABLE_HTTPS" == "1" ]]; then
