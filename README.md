@@ -98,6 +98,7 @@ bin\install-service.bat
 - 설치 스크립트는 **본인 데스크톱 세션에서 실행**해야 한다 — 웹 터미널(SYSTEM 계정)에서 실행하면 잘못된 사용자를 캡처하므로 스크립트가 차단함
 - 로그: `logs\ttyd.log` (1MB 로테이션)
 - 실행될 명령 미리보기: `bin\install-service.bat /dry`
+- 설치 시 **HTTPS·로그인 사용 여부를 대화형으로 질문**한다(승격된 창에서). 상단 Configuration의 `CRED`/`SSL_CERT`/`SSL_KEY`를 미리 채우면 해당 질문은 건너뛴다. HTTPS 선택 시 인증서 파일 존재를 확인하고 없으면 안내 후 중단(ttyd는 동봉되어 별도 설치 불필요). 세션 유지는 Windows 미지원
 
 제거:
 
@@ -121,8 +122,8 @@ bin\ttyd.bat
 set "PORT=33322"
 set "SHELL_CWD=%USERPROFILE%"
 set "SHELL_CMD=powershell.exe"
-set "CRED="                     :: 로그인: user:pass  (빈 값 = 비활성)
-set "SSL_CERT="                 :: HTTPS: cert+key 둘 다 지정 시 활성
+set "CRED="                     :: 로그인(user:pass). 비우면 설치 시 대화형 질문
+set "SSL_CERT="                 :: HTTPS 인증서. cert+key를 비우면 설치 시 질문
 set "SSL_KEY="
 ```
 
@@ -138,6 +139,7 @@ ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd
 ./linux/install-service.sh     # Linux: systemd 사용자 유닛 (검증: WSL2 실측 통과)
 ./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작, 검증: 실기 맥 통과)
 ```
+- 설치 시 **세션유지·HTTPS·로그인 사용 여부를 대화형으로 질문**한다. 선택에 필요한 패키지(`ttyd`, 세션유지 선택 시 `tmux`)가 없으면 **설치를 시작하지 않고** 설치 명령을 안내한 뒤 종료한다(HTTPS 선택 시 인증서 파일 존재도 확인). 비대화형·`--dry` 실행은 아래 환경변수로 선택을 대신 지정
 
 - 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드
 - 포트 변경: `TTYD_PORT=8080 ./install-service.sh` 처럼 환경변수로 오버라이드

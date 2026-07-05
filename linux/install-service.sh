@@ -1,11 +1,20 @@
 #!/usr/bin/env bash
 # ============================================================
 #  ttyd-wrapper service installer (systemd user unit)
-#  Usage:  ./install-service.sh          install + start
+#  Usage:  ./install-service.sh          interactive install + start
 #          ./install-service.sh --dry    print rendered unit + commands
 #
 #  Runs as YOUR user (no root needed for the service itself).
 #  loginctl enable-linger makes it start at boot without login.
+#
+#  Interactive: you are asked whether to enable each optional feature
+#  (persistent session / HTTPS / login). Non-interactive runs (piped
+#  stdin or --dry) fall back to env vars:
+#    TTYD_TMUX=0            disable persistent session
+#    TTYD_CRED=user:pass    enable login (basic auth)
+#    TTYD_SSL_CERT=...  TTYD_SSL_KEY=...   enable HTTPS
+#  Required packages are checked against your choices BEFORE install;
+#  if missing, the script tells you what to install and exits.
 # ============================================================
 set -euo pipefail
 
@@ -30,29 +39,91 @@ DRY=0
 [[ -f "$INDEX" ]]    || { echo "[ERROR] index.html not found: $INDEX" >&2; exit 1; }
 [[ -f "$TEMPLATE" ]] || { echo "[ERROR] unit template not found: $TEMPLATE" >&2; exit 1; }
 
+# ---------- Detect what is installed ----------
 TTYD_BIN="$(command -v ttyd || true)"
-if [[ -z "$TTYD_BIN" ]]; then
+HAVE_TMUX=0; command -v tmux >/dev/null 2>&1 && HAVE_TMUX=1
+
+# ---------- Feature selection ----------
+ask_yn() {  # $1=prompt  $2=default(Y|N) -> returns 0 for yes
+    local ans hint
+    if [[ "$2" == "Y" ]]; then hint="[Y/n]"; else hint="[y/N]"; fi
+    read -r -p "$1 $hint " ans || true
+    ans="${ans:-$2}"
+    [[ "$ans" =~ ^[Yy] ]]
+}
+
+if [[ "$DRY" == "0" && -t 0 ]]; then
+    echo
+    echo "=== Configure ttyd-wrapper (Enter = default) ==="
+    echo
+    echo "[Session persistence] tmux keeps your shell (and running programs) alive"
+    echo "  across disconnects; reconnecting restores it and multiple devices mirror"
+    echo "  the same session. Requires the 'tmux' package."
+    if ask_yn "  Enable persistent session?" Y; then ENABLE_TMUX=1; else ENABLE_TMUX=0; fi
+    echo
+    echo "[HTTPS/TLS] Encrypts traffic. Required for safe public exposure and for PWA"
+    echo "  home-screen install. Needs a certificate + key (e.g. Let's Encrypt via"
+    echo "  acme.sh/certbot with a DDNS domain)."
+    if ask_yn "  Enable HTTPS?" N; then
+        ENABLE_HTTPS=1
+        read -r -p "    Certificate (fullchain) path: " SSL_CERT || true
+        read -r -p "    Private key path: " SSL_KEY || true
+    else ENABLE_HTTPS=0; fi
+    echo
+    echo "[Login] Single account (HTTP basic auth), usable from several devices at once."
+    echo "  Credentials are sent base64 (effectively plaintext) - pair with HTTPS."
+    if ask_yn "  Enable login?" N; then
+        ENABLE_AUTH=1
+        read -r -p "    Username: " _lu || true
+        read -r -s -p "    Password: " _lp || true; echo
+        CRED="${_lu:-}:${_lp:-}"
+    else ENABLE_AUTH=0; fi
+    echo
+else
+    # Non-interactive / --dry: derive from environment.
+    ENABLE_TMUX=1; [[ "${TTYD_TMUX:-1}" == "0" ]] && ENABLE_TMUX=0
+    ENABLE_HTTPS=0; [[ -n "$SSL_CERT" && -n "$SSL_KEY" ]] && ENABLE_HTTPS=1
+    ENABLE_AUTH=0;  [[ -n "$CRED" ]] && ENABLE_AUTH=1
+fi
+
+# ---------- Pre-flight: required packages for the chosen features ----------
+missing=()
+[[ -z "$TTYD_BIN" ]] && missing+=("ttyd")
+[[ "$ENABLE_TMUX" == "1" && "$HAVE_TMUX" == "0" ]] && missing+=("tmux")
+if [[ ${#missing[@]} -gt 0 ]]; then
     if [[ "$DRY" == "1" ]]; then
-        TTYD_BIN="/usr/bin/ttyd"
-        echo "[DRY] ttyd not found; assuming $TTYD_BIN"
+        echo "[DRY] missing package(s): ${missing[*]} (a real install would stop here)"
+        [[ -z "$TTYD_BIN" ]] && TTYD_BIN="/usr/bin/ttyd"
     else
-        echo "[ERROR] ttyd not found. Install it first:" >&2
-        echo "        sudo apt install ttyd" >&2
-        echo "        (or download a release: https://github.com/tsl0922/ttyd/releases)" >&2
+        echo "[ERROR] Required package(s) not installed for your choices: ${missing[*]}" >&2
+        echo "        Install them first, then re-run this installer:" >&2
+        echo "          sudo apt install ${missing[*]}     # (or your distro's package manager)" >&2
+        [[ " ${missing[*]} " == *" ttyd "* ]] && echo "          ttyd releases: https://github.com/tsl0922/ttyd/releases" >&2
         exit 1
     fi
 fi
 
-# ---------- Compose ttyd args (auth / SSL / persistent session) ----------
-SCHEME="http"
-if [[ "${TTYD_TMUX:-1}" != "0" ]] && command -v tmux >/dev/null 2>&1; then
-    CMD="tmux new -A -s $SESSION"
-else
-    CMD="bash -l"
+# ---------- Pre-flight: HTTPS certificate files ----------
+if [[ "$ENABLE_HTTPS" == "1" ]]; then
+    if [[ -z "$SSL_CERT" || -z "$SSL_KEY" ]]; then
+        echo "[ERROR] HTTPS enabled but certificate/key path was not provided." >&2
+        exit 1
+    fi
+    if [[ "$DRY" == "0" && ( ! -f "$SSL_CERT" || ! -f "$SSL_KEY" ) ]]; then
+        echo "[ERROR] Certificate or key file not found:" >&2
+        [[ ! -f "$SSL_CERT" ]] && echo "          cert: $SSL_CERT" >&2
+        [[ ! -f "$SSL_KEY"  ]] && echo "          key : $SSL_KEY"  >&2
+        echo "        Obtain a cert first (e.g. acme.sh/certbot + a DDNS domain), then re-run." >&2
+        exit 1
+    fi
 fi
+
+# ---------- Compose ttyd args from the chosen features ----------
+SCHEME="http"
+if [[ "$ENABLE_TMUX" == "1" ]]; then CMD="tmux new -A -s $SESSION"; else CMD="bash -l"; fi
 ARGS="--writable -t platform=linux"
-[[ -n "$CRED" ]] && ARGS="$ARGS -c \"$CRED\""
-if [[ -n "$SSL_CERT" && -n "$SSL_KEY" ]]; then
+[[ "$ENABLE_AUTH" == "1" && -n "$CRED" ]] && ARGS="$ARGS -c \"$CRED\""
+if [[ "$ENABLE_HTTPS" == "1" ]]; then
     ARGS="$ARGS -S -C \"$SSL_CERT\" -K \"$SSL_KEY\""
     SCHEME="https"
 fi
@@ -66,12 +137,13 @@ render() {
 
 echo
 echo "=== ttyd-wrapper service installer (systemd user unit) ==="
-echo "  Unit  : $UNIT_FILE"
-echo "  ttyd  : $TTYD_BIN"
-echo "  Index : $INDEX"
-echo "  Port  : $PORT"
-echo "  Cmd   : $CMD"
-echo "  Auth  : $([[ -n "$CRED" ]] && echo enabled || echo none)   SSL: $SCHEME"
+echo "  Unit    : $UNIT_FILE"
+echo "  ttyd    : $TTYD_BIN"
+echo "  Index   : $INDEX"
+echo "  Port    : $PORT"
+echo "  Session : $([[ "$ENABLE_TMUX" == "1" ]] && echo "tmux ($SESSION) - persistent" || echo "login shell - not persistent")"
+echo "  Login   : $([[ "$ENABLE_AUTH" == "1" ]] && echo enabled || echo disabled)"
+echo "  HTTPS   : $([[ "$ENABLE_HTTPS" == "1" ]] && echo "enabled ($SCHEME)" || echo disabled)"
 echo
 
 if [[ "$DRY" == "1" ]]; then

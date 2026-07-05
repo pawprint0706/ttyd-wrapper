@@ -3,8 +3,12 @@ setlocal EnableExtensions
 
 :: ============================================================
 ::  ttyd-wrapper Windows Service Installer (via NSSM)
-::  Usage:  install-service.bat        (installs + starts)
-::          install-service.bat /dry   (print commands only)
+::  Usage:  install-service.bat        (interactive install + start)
+::          install-service.bat /dry   (print commands only, no prompts)
+::
+::  You are asked (in the elevated window) whether to enable HTTPS and
+::  login. Pre-set CRED / SSL_CERT / SSL_KEY below to skip those prompts.
+::  Persistent background sessions are NOT available on Windows.
 ::
 ::  The service runs service-launcher.ps1, which re-resolves the
 ::  user's PATH from the registry at EVERY service start - so
@@ -17,7 +21,7 @@ set "SERVICE_DISPLAY=ttyd Web Terminal"
 set "PORT=33322"
 set "SHELL_CWD=%USERPROFILE%"
 set "SHELL_CMD=powershell.exe"
-:: Optional: basic auth (user:pass) and HTTPS. Leave blank to disable.
+:: Optional: pre-set to skip the interactive prompts. Leave blank to be asked.
 set "CRED="
 set "SSL_CERT="
 set "SSL_KEY="
@@ -36,14 +40,8 @@ set "LOG_DIR=%ROOT%\logs"
 set "DRYRUN=0"
 if /i "%~1"=="/dry" set "DRYRUN=1"
 
-:: ---------- Optional auth / SSL flags ----------
-set "OPTS="
-set "SCHEME=http"
-if defined CRED set "OPTS=%OPTS% -c %CRED%"
-if defined SSL_CERT if defined SSL_KEY (
-    set "OPTS=%OPTS% -S -C "%SSL_CERT%" -K "%SSL_KEY%""
-    set "SCHEME=https"
-)
+:: Build auth/SSL flags from current config (used for /dry and as defaults).
+call :build_opts
 
 :: ---------- Sanity checks ----------
 if not exist "%NSSM%"     ( echo [ERROR] nssm.exe not found: %NSSM% & pause & exit /b 1 )
@@ -51,19 +49,13 @@ if not exist "%TTYD%"     ( echo [ERROR] ttyd.exe not found: %TTYD% & pause & ex
 if not exist "%LAUNCHER%" ( echo [ERROR] service-launcher.ps1 not found: %LAUNCHER% & pause & exit /b 1 )
 if not exist "%INDEX%"    ( echo [ERROR] index.html not found: %INDEX% & pause & exit /b 1 )
 
-echo.
-echo === ttyd-wrapper service installer ===
-echo   Service : %SERVICE_NAME%
-echo   Launcher: %LAUNCHER%
-echo   Binary  : %TTYD%
-echo   Index   : %INDEX%
-echo   Port    : %PORT%
-echo   Shell   : %SHELL_CMD% (cwd: %SHELL_CWD%)
-echo   Logs    : %LOG_DIR%
-echo   Auth    : cred=[%CRED%]  scheme=%SCHEME%
-echo.
-
 if "%DRYRUN%"=="1" (
+    echo.
+    echo === ttyd-wrapper service installer [DRY RUN] ===
+    echo   Service : %SERVICE_NAME%
+    echo   Port    : %PORT%
+    echo   Auth    : cred=[%CRED%]  scheme=%SCHEME%
+    echo.
     echo [DRY RUN] Commands that would be executed:
     echo   "%NSSM%" install %SERVICE_NAME% "%PSEXE%"
     echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
@@ -93,6 +85,49 @@ if not "%errorlevel%"=="0" (
     exit /b
 )
 
+:: ---------- Interactive feature selection (elevated console) ----------
+echo.
+echo === Configure ttyd-wrapper ===
+echo   [Note] Persistent background sessions are not available on Windows
+echo          (no tmux-style reattach for PowerShell). Linux/macOS provide it.
+echo.
+:: HTTPS prompt (skipped if SSL_CERT is pre-set in Configuration)
+if defined SSL_CERT goto :after_https
+echo   [HTTPS] Encrypts traffic; needed for safe public exposure and PWA install.
+set /p "ANS_H=  Enable HTTPS? [y/N]: "
+if /i not "%ANS_H%"=="y" goto :after_https
+set /p "SSL_CERT=    Certificate (fullchain .pem) path: "
+set /p "SSL_KEY=    Private key (.pem) path: "
+:after_https
+echo.
+:: Login prompt (skipped if CRED is pre-set in Configuration)
+if defined CRED goto :after_login
+echo   [Login] Single account (basic auth), usable from several devices.
+echo           Credentials travel base64 (plaintext) - use together with HTTPS.
+set /p "ANS_L=  Enable login? [y/N]: "
+if /i not "%ANS_L%"=="y" goto :after_login
+set /p "CRED_USER=    Username: "
+set /p "CRED_PASS=    Password: "
+set "CRED=%CRED_USER%:%CRED_PASS%"
+:after_login
+echo.
+
+:: Rebuild flags from the selections and validate certificate files.
+call :build_opts
+if defined SSL_CERT if defined SSL_KEY (
+    if not exist "%SSL_CERT%" ( echo [ERROR] Certificate not found: %SSL_CERT% & echo         Obtain a cert first ^(acme.sh/certbot + DDNS domain^), then re-run. & pause & exit /b 1 )
+    if not exist "%SSL_KEY%"  ( echo [ERROR] Private key not found: %SSL_KEY% & pause & exit /b 1 )
+)
+
+echo === Installing ===
+echo   Service : %SERVICE_NAME%
+echo   Binary  : %TTYD%
+echo   Port    : %PORT%
+echo   Shell   : %SHELL_CMD% (cwd: %SHELL_CWD%)
+echo   Login   : cred=[%CRED%]   HTTPS: %SCHEME%
+echo   Logs    : %LOG_DIR%
+echo.
+
 :: ---------- Capture stable user identity ----------
 set "USER_SID="
 for /f "tokens=2 delims=," %%s in ('whoami /user /fo csv /nh') do set "USER_SID=%%~s"
@@ -116,7 +151,7 @@ if not "%errorlevel%"=="0" ( echo [ERROR] nssm install failed & pause & exit /b 
 "%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
 "%NSSM%" set "%SERVICE_NAME%" AppDirectory "%BIN_DIR%"
 "%NSSM%" set "%SERVICE_NAME%" DisplayName "%SERVICE_DISPLAY%"
-"%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over HTTP port %PORT%"
+"%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over %SCHEME% port %PORT%"
 "%NSSM%" set "%SERVICE_NAME%" Start SERVICE_AUTO_START
 
 :: Stable identity only - PATH itself is resolved fresh by the launcher
@@ -161,3 +196,18 @@ if "%errorlevel%"=="0" (
 )
 
 pause
+exit /b 0
+
+:: ============================================================
+::  Subroutines
+:: ============================================================
+
+:build_opts
+set "OPTS="
+set "SCHEME=http"
+if defined CRED if not "%CRED%"==":" set "OPTS= -c %CRED%"
+if defined SSL_CERT if defined SSL_KEY (
+    set "OPTS=%OPTS% -S -C "%SSL_CERT%" -K "%SSL_KEY%""
+    set "SCHEME=https"
+)
+goto :eof
