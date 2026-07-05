@@ -1,192 +1,165 @@
 # ttyd-wrapper
 
-**모바일 친화적인 ttyd 웹 터미널 래퍼** — Windows PowerShell을 웹 브라우저로 중계하고, 모바일에서 불가능했던 폰트 크기 조절과 특수키(방향키, Esc, Tab, Ctrl 조합 등) 입력을 웹 UI로 제공한다.
+**모바일 브라우저에서 내 PC 터미널을 쓰기 위한 [ttyd](https://github.com/tsl0922/ttyd) 래퍼** — 기본 ttyd 웹 페이지에서는 불가능한 **폰트 크기 조절**과 **특수키 입력**(Esc, Tab, 방향키, Ctrl 조합 등)을 모바일 친화적인 웹 UI로 제공한다.
 
-**다양한 플랫폼 지원** — Windows, Linux, macOS 지원. (전 플랫폼 실측 검증 완료)
+Windows / Linux / macOS 지원 (전 플랫폼 실측 검증 완료).
 
 ## 1. 프로젝트 개요
 
-[ttyd](https://github.com/tsl0922/ttyd)는 터미널을 웹으로 중계해주는 도구지만, 기본 웹 페이지는 모바일 환경에서 두 가지 치명적인 한계가 있다:
+ttyd는 터미널을 웹 브라우저로 중계해 주는 도구지만, 기본 웹 페이지는 모바일에서 쓰기 어렵다.
 
-1. **폰트 크기 조절 불가** — 작은 화면에서 가독성 조절 수단이 없음
-2. **특수키 입력 불가** — 모바일 소프트 키보드에는 방향키, Esc, Tab, Ctrl, Home, End 등이 없음
+- 작은 화면인데 **폰트 크기를 조절할 수 없다**
+- 모바일 소프트 키보드에 없는 키 — **Esc, Tab, 방향키, Ctrl 조합 등을 입력할 수 없다**
 
-본 프로젝트는 ttyd의 `-I`(커스텀 index) 옵션을 활용해 **단일 HTML 파일**로 위 문제를 해결한다. 별도 웹 서버나 빌드 과정 없이 ttyd가 직접 커스텀 페이지를 서빙하며, 페이지는 ttyd의 WebSocket 프로토콜로 터미널과 직접 통신한다.
+이 프로젝트는 ttyd의 커스텀 페이지 옵션(`-I`)에 자체 제작 **단일 HTML 파일**(`public/index.html`)을 물려 위 문제를 해결한다. 별도 웹 서버·빌드 과정·외부 CDN 없이 ttyd 혼자 모든 것을 서빙하며, OS별 서비스 등록 스크립트가 동봉되어 부팅(로그인) 시 자동 시작된다.
 
-## 2. 주요 기능
+- **호스트(터미널을 제공하는 PC)**: Windows, Linux, macOS
+- **클라이언트(접속하는 기기)**: 모던 브라우저 — Chrome 108+ / Safari 15.4+ / Firefox 101+
 
-| 분류 | 기능 |
-|------|------|
-| 모드 UI | 하단바 3모드 — 특수키(기본) / 설정 / 텍스트 선택. 우측 클러스터(선택·설정·키보드·상태등)로 전환 |
-| 특수키 | Esc, Tab, `` ` ``, `-`, `\`, `'`, `/`, Del, Enter, Home, End, PgUp, PgDn, ▲▼◀▶ + Fn 레이어로 F1~F12. 기호키는 Shift 조합 시 `~ _ \| " ?` |
-| 모디파이어 | Ctrl / Alt / Shift / Win 스티키 원샷 토글 — 온스크린 특수키(CSI 조합) 및 타이핑 문자(IME·물리 키보드)와 조합. 한글 등 다글자 입력은 그대로 통과 |
-| 서버 OS 라벨 | ttyd `-t platform=…` 통지로 Alt/Win ↔ ⌥/⌘ ↔ Alt/Super 자동 표기 |
-| 설정 모드 | A−/A+ 폰트 10~32px 실시간 조절 + 터미널 재시작(2탭 확인) |
-| 텍스트 선택 | 터치 드래그 셀 선택 + 전체선택/복사/붙여넣기/해제 |
-| 반응형 | 모바일 우선 CSS(3줄 고정 레이아웃), `100dvh` 뷰포트, 툴바 접기, 다크 테마 |
-| 복원력 | WebSocket 자동 재연결(지수 백오프 1~10초) + 연결 상태 표시 |
-| 오프라인 | xterm.js 전체 인라인 — 외부 CDN 의존성 0, 망분리 환경 동작 |
-| 아이콘 | 루트 `icon.png` 기반 파비콘(16/32px) + 홈 화면 아이콘(180/192px) 전부 data URI 인라인 — Android Chrome '홈 화면에 추가' 시 전용 아이콘 적용 |
-| 서비스 | NSSM 기반 윈도우 서비스 등록(부팅 자동 시작, 크래시 복구, 로그 로테이션) |
+## 2. 설치 / 삭제
 
-## 3. 기술 스펙
+저장소를 받아 원하는 위치에 두면 준비 끝이다. 설치 후 저장소 폴더를 옮기면 서비스가 참조하는 경로가 깨지므로 재설치해야 한다.
 
-| 항목 | 내용 |
-|------|------|
-| 터미널 중계 | ttyd v1.7.7 (포트 33322, PowerShell 릴레이) |
-| 터미널 렌더링 | xterm.js 5.3.0 + fit addon 0.8.0 + web-links addon 0.9.0 |
-| 프론트엔드 | Vanilla HTML/CSS/JS 단일 파일 (`public/index.html`, 약 305KB, 벤더 인라인) |
-| 통신 | ttyd WebSocket 프로토콜 — subprotocol `["tty"]`, 토큰 핸드셰이크, 1바이트 커맨드 prefix |
-| 서비스 관리 | NSSM 2.24 |
-| 지원 환경 | Windows (호스트), 모던 브라우저 (Chrome 108+ / Safari 15.4+ / Firefox 101+) |
-
-### ttyd WebSocket 프로토콜 요약
+설치가 끝나면 같은 네트워크의 브라우저에서 접속한다 (기본 포트 `33322`):
 
 ```
-1. GET /token                        → {"token": ""}
-2. new WebSocket(url, ['tty'])       → subprotocol 필수
-3. 첫 메시지: {"AuthToken":"","columns":N,"rows":M}  ← PTY 스폰 (생략 시 무반응)
-4. 이후: '0'+bytes = 입력, '1'+JSON = 리사이즈  (수신: '0'=출력, '1'=타이틀, '2'=설정)
+http://<호스트 PC의 IP>:33322/        ← HTTPS를 켰다면 https://
 ```
 
-상세는 [docs/feasibility-review.md](docs/feasibility-review.md) §2.2 참조.
+### Windows
+
+ttyd·NSSM 바이너리가 동봉되어 있어 **사전 설치할 것이 없다**. 터미널로 PowerShell을 중계한다.
+
+| 작업 | 명령 |
+|------|------|
+| 서비스 설치 | `bin\install-service.bat` |
+| 서비스 삭제 | `bin\uninstall-service.bat` |
+| 수동 실행 (서비스 없이) | `bin\ttyd.bat` |
+
+- 설치 스크립트가 관리자 승격(UAC), 방화벽 규칙(TCP 33322) 등록, 부팅 자동 시작·크래시 자동 재시작 설정까지 처리한다.
+- 설치 중 **HTTPS / 로그인** 사용 여부를 물어본다 (Enter만 치면 모두 끔).
+- 반드시 **본인 데스크톱 세션에서 실행**한다 — 웹 터미널 안에서 실행하면 스크립트가 차단한다.
+- 실행될 명령 미리보기: `bin\install-service.bat /dry`
+- 포트·셸 등 변경: `bin\install-service.bat` 상단 Configuration 블록 수정 후 재설치.
+
+### Linux
+
+사전 설치: `sudo apt install ttyd` — 세션 유지 기능을 쓰려면 `tmux`도 함께.
+
+| 작업 | 명령 |
+|------|------|
+| 서비스 설치 | `./linux/install-service.sh` |
+| 서비스 삭제 | `./linux/uninstall-service.sh` |
+| 수동 실행 (서비스 없이) | `./linux/ttyd.sh` |
+
+- systemd **사용자 유닛**으로 설치된다 — 서비스에 root 권한이 필요 없고, `loginctl enable-linger`로 부팅 시 자동 시작한다.
+- 설치 중 **세션 유지(tmux) / HTTPS / 로그인** 사용 여부를 물어본다. 선택한 기능에 필요한 패키지가 없으면 설치를 시작하지 않고 설치 명령을 안내한 뒤 종료한다.
+- 실행될 내용 미리보기: `./linux/install-service.sh --dry`
+
+### macOS
+
+사전 설치: `brew install ttyd` — 세션 유지 기능을 쓰려면 `tmux`도 함께.
+
+| 작업 | 명령 |
+|------|------|
+| 서비스 설치 | `./macos/install-service.sh` |
+| 서비스 삭제 | `./macos/uninstall-service.sh` |
+| 수동 실행 (서비스 없이) | `./macos/ttyd.sh` |
+
+- **LaunchAgent**로 등록되어 로그인 시 자동 시작, 크래시 시 자동 재시작한다.
+- 설치 질문과 미리보기(`--dry`)는 Linux와 동일하다.
+- 첫 접속 때 macOS 방화벽 허용 팝업이 뜨면 '허용'을 누른다.
+
+### 설정 변경 (Linux / macOS 공통)
+
+설치·수동 실행 스크립트는 환경변수로 오버라이드한다. 예: `TTYD_PORT=8080 ./linux/install-service.sh`
+
+| 환경변수 | 의미 |
+|----------|------|
+| `TTYD_PORT` | 포트 (기본 33322) |
+| `TTYD_CRED=user:pass` | 로그인(basic auth) 활성화 |
+| `TTYD_SSL_CERT` / `TTYD_SSL_KEY` | HTTPS 인증서·키 경로 |
+| `TTYD_SESSION` | tmux 세션 이름 (기본 `ttyd`) |
+| `TTYD_TMUX=0` | 세션 유지 끄기 (일반 로그인 셸 사용) |
+
+### HTTPS 인증서 준비 — 무료 DDNS + 무료 인증서
+
+> **보안 주의**: 로그인(basic auth)의 자격증명은 사실상 평문으로 전송된다 — **반드시 HTTPS와 함께** 사용한다.
+
+인증서는 고정 IP나 유료 도메인 없이도 무료로 준비할 수 있다. HTTPS를 켜면 통신 암호화 외에 붙여넣기 버튼과 PWA 홈 화면 설치도 활성화된다.
+
+1. **무료 DDNS로 도메인 확보** — [DuckDNS](https://www.duckdns.org/), [No-IP](https://www.noip.com/) 등에서 무료 서브도메인(예: `myhost.duckdns.org`)을 만들어 내 공인 IP에 연결한다. 외부에서 접속하려면 공유기 포트포워딩(기본 33322)도 열어 둔다.
+2. **무료 인증서 발급** — [acme.sh](https://github.com/acmesh-official/acme.sh)(또는 certbot)로 위 도메인에 대해 Let's Encrypt 인증서를 발급받는다. 순수 IP 주소로는 발급되지 않으므로 도메인이 필요하며, **DNS-01 챌린지**를 쓰면 포트를 열지 않고도 발급할 수 있다(DuckDNS 등 주요 DDNS가 API를 지원).
+3. **설치 시 지정** — 발급된 `fullchain.pem` / `privkey.pem` 경로를 설치 중 HTTPS 질문(또는 환경변수 `TTYD_SSL_CERT`/`TTYD_SSL_KEY`, Windows는 `SSL_CERT`/`SSL_KEY`)에 넣고 `https://<도메인>:33322/`로 접속한다. 인증서가 자동 갱신되면 서비스 재시작으로 반영한다.
+
+## 3. 프로젝트 기능
+
+| 기능 | 설명 |
+|------|------|
+| 특수키 입력 | Esc · Tab · 방향키 · Home/End/PgUp/PgDn · Del 등 + Fn 레이어(F1~F12) — 모바일 키보드에 없는 키를 화면 하단 툴바 버튼으로 입력 |
+| 키 조합 | Ctrl / Alt / Shift / Win 스티키 토글 — 켜고 다음 입력 1회에 자동 조합 (예: Ctrl 켜고 `c` = Ctrl+C) |
+| 폰트 크기 조절 | 설정 모드에서 A− / A+ 버튼으로 10~32px 실시간 조절 |
+| 텍스트 선택 | 터치 드래그로 선택 + 전체선택 / 복사 / 붙여넣기 버튼 |
+| 세션 유지 | **Linux/macOS**: tmux 세션 — 연결이 끊겨도 작업이 유지되고 재접속 시 복원, 여러 기기가 같은 세션을 미러링. **Windows**: 미지원 (접속마다 독립 PowerShell) |
+| 보안 옵션 | 로그인(basic auth) + HTTPS — 설치 시 선택 |
+| 자동 재연결 | 끊기면 지수 백오프(1~10초)로 재접속, 연결 상태 표시등(●) 제공 |
+| 오프라인 완결 | 모든 리소스가 단일 HTML에 인라인 — 외부 CDN 의존 0, 망분리 환경에서도 동작 |
+| 서비스 운영 | 부팅(로그인) 자동 시작, 크래시 자동 재시작, 로그 로테이션(1MB) |
+| 홈 화면 추가 | PWA 매니페스트·아이콘 내장 — Android Chrome '홈 화면에 추가' 시 전용 아이콘 적용 |
+
+### 기본 조작법
+
+- **일반 입력** — 터미널 영역을 탭하거나 소프트 키보드 보이기/숨기기(**⌨**) 버튼을 누르면 소프트 키보드가 열린다. 키보드에 없는 키만 하단 툴바로 입력하면 된다.
+- **툴바 열기/접기** — 터미널 우측 하단 **☰** 버튼. 모바일은 기본 표시, PC는 기본 숨김이다.
+- **특수키 입력** — 툴바의 키를 그대로 누른다. **Fn**을 켜면 키들이 F1~F12로 바뀐다.
+- **조합키 입력** — **Ctrl / Alt / Shift / Win**은 한 번 누르면 빨갛게 켜지고(스티키), 다음 입력 1회에 조합된 뒤 자동으로 풀린다. 예: **Ctrl**을 켜고 `c`를 입력하면 Ctrl+C.
+- **우측 고정 버튼** — 툴바 어느 모드에서나 표시된다:
+  - **⌶** 텍스트 선택 모드 — 드래그로 선택 후 전체선택/복사/붙여넣기 (붙여넣기 버튼은 브라우저 정책상 HTTPS 접속에서만 동작)
+  - **⚙** 설정 모드 — **A−/A+** 폰트 크기 조절, **⟳** 터미널 재시작
+  - **⌨** 소프트 키보드 보이기/숨기기 — 모바일 전용 (PC에서는 표시되지 않음)
+  - **●** 연결 상태 — 녹색=연결됨, 적색=재연결 중
 
 ## 4. 프로젝트 구조
 
 ```
 ttyd-wrapper/
-├── bin/
-│   ├── ttyd.exe               # ttyd 바이너리 (v1.7.7)
-│   ├── ttyd.bat               # 수동 실행 스크립트
-│   ├── nssm.exe               # 서비스 매니저 (NSSM)
-│   ├── install-service.bat    # 윈도우 서비스 등록 (UAC 자동 승격)
-│   ├── uninstall-service.bat  # 서비스 제거
-│   └── service-launcher.ps1   # 서비스 기동 시 사용자 PATH 재구성 후 ttyd 실행
-├── linux/
-│   ├── ttyd.sh                # 수동 실행 (bash -l 릴레이)
-│   ├── install-service.sh     # systemd 사용자 유닛 설치
-│   ├── uninstall-service.sh   # 유닛 제거
-│   └── ttyd-wrapper.service   # systemd 유닛 템플릿
-├── macos/
-│   ├── ttyd.sh                # 수동 실행 (zsh -l 릴레이)
-│   ├── install-service.sh     # LaunchAgent 등록
-│   ├── uninstall-service.sh   # Agent 제거
-│   └── ttyd-wrapper.plist     # LaunchAgent 템플릿
 ├── public/
-│   ├── index.html             # 커스텀 웹 래퍼 (단일 파일, 벤더 인라인)
-│   └── vendor/                # xterm.js 원본 (참조용, 런타임 미사용)
-├── logs/                      # 서비스 로그 (설치 시 생성, 1MB 로테이션)
+│   ├── index.html             # 커스텀 웹 터미널 UI — 단일 파일, 모든 리소스 인라인
+│   └── vendor/                # xterm.js 원본 (참조용 — 런타임에는 index.html 내 인라인 사본 사용)
+├── bin/                       # ── Windows ──
+│   ├── ttyd.exe / nssm.exe    # 동봉 바이너리 (ttyd, 서비스 매니저)
+│   ├── install-service.bat    # 서비스 설치 (UAC 승격·방화벽·자동 시작)
+│   ├── uninstall-service.bat  # 서비스 삭제
+│   ├── service-launcher.ps1   # 서비스 기동 시 사용자 PATH 재구성 런처
+│   └── ttyd.bat               # 수동 실행
+├── linux/                     # ── Linux (systemd 사용자 유닛) ──
+│   ├── install-service.sh / uninstall-service.sh
+│   ├── ttyd-wrapper.service   # 유닛 템플릿
+│   └── ttyd.sh                # 수동 실행
+├── macos/                     # ── macOS (LaunchAgent) ──
+│   ├── install-service.sh / uninstall-service.sh
+│   ├── ttyd-wrapper.plist     # LaunchAgent 템플릿
+│   └── ttyd.sh                # 수동 실행
+├── docs/                      # ── 상세 문서 ──
+│   ├── README-legacy.md       # 구 README (상세 사용법·기술 스펙 아카이브)
+│   ├── feasibility-review.md  # 기술 검토 · ttyd WebSocket 프로토콜 분석
+│   ├── upgrade-plan.md        # 기능 확장 계획 · 결정 기록 (인증·HTTPS·세션·PWA)
+│   ├── porting-analysis.md    # Linux/macOS 포팅 분석
+│   └── toolbar-redesign.md    # 툴바 UI 설계
+├── logs/                      # 서비스 로그 (1MB 로테이션)
 ├── icon.png                   # 앱 아이콘 원본 (파비콘·홈 화면 아이콘으로 인라인 임베딩)
-├── docs/
-│   └── feasibility-review.md  # 기술 검토 및 프로토콜 문서
-└── README.md
+└── LICENSE                    # 자체 코드 라이선스 (MIT)
 ```
 
-## 5. 설치법
+## 5. 라이선스
 
-### 방법 A — 윈도우 서비스로 등록 (권장)
+이 저장소의 자체 코드(웹 UI, 설치 스크립트)는 [MIT 라이선스](LICENSE)를 따른다.
 
-```bat
-bin\install-service.bat
-```
+또한 아래 외부 소프트웨어를 사용하며, 각 구성 요소는 해당 라이선스를 따른다.
 
-- UAC 프롬프트 자동 표시 (관리자 승격)
-- 기존 서비스가 있으면 교체 (멱등)
-- 부팅 시 자동 시작, 크래시 시 3초 후 재시작
-- 방화벽 인바운드 규칙(TCP 33322) 자동 등록 — 모바일 접속에 필수
-- 서비스는 `service-launcher.ps1`을 경유해 기동 — **서비스 시작 시마다** 레지스트리에서 머신+사용자 PATH를 새로 읽어 구성하므로, PATH 변경 후 **서비스 재시작만으로 반영**된다 (재설치 불필요). 설치 시점에는 변하지 않는 값(사용자 SID·프로필 경로)만 기록. 사용자 로그온 전(부팅 직후)에도 NTUSER.DAT를 임시 로드해 처리
-- 설치 스크립트는 **본인 데스크톱 세션에서 실행**해야 한다 — 웹 터미널(SYSTEM 계정)에서 실행하면 잘못된 사용자를 캡처하므로 스크립트가 차단함
-- 로그: `logs\ttyd.log` (1MB 로테이션)
-- 실행될 명령 미리보기: `bin\install-service.bat /dry`
-- 설치 시 **HTTPS·로그인 사용 여부를 대화형으로 질문**한다(승격된 창에서). 상단 Configuration의 `CRED`/`SSL_CERT`/`SSL_KEY`를 미리 채우면 해당 질문은 건너뛴다. HTTPS 선택 시 인증서 파일 존재를 확인하고 없으면 안내 후 중단(ttyd는 동봉되어 별도 설치 불필요). 세션 유지는 Windows 미지원
-
-제거:
-
-```bat
-bin\uninstall-service.bat
-```
-
-### 방법 B — 수동 실행
-
-```bat
-bin\ttyd.bat
-```
-
-콘솔 창이 열려 있는 동안만 동작한다.
-
-### 설정 변경
-
-포트·쉘·작업 디렉토리는 `bin\install-service.bat` 상단 Configuration 블록에서 수정:
-
-```bat
-set "PORT=33322"
-set "SHELL_CWD=%USERPROFILE%"
-set "SHELL_CMD=powershell.exe"
-set "CRED="                     :: 로그인(user:pass). 비우면 설치 시 대화형 질문
-set "SSL_CERT="                 :: HTTPS 인증서. cert+key를 비우면 설치 시 질문
-set "SSL_KEY="
-```
-
-수동 실행용 `bin\ttyd.bat`도 동일하게 맞춰야 한다.
-
-> **로그인·HTTPS**: `CRED`(basic auth)는 자격증명이 평문 전송되므로 **반드시 HTTPS(`SSL_CERT`/`SSL_KEY`)와 함께** 쓴다. 단일 계정으로 여러 기기 동시접속 가능. 공용망 공개 시 도메인+무료 인증서(Let's Encrypt/DDNS) 발급 절차는 [docs/upgrade-plan.md](docs/upgrade-plan.md) §3.5 참조.
-
-### macOS / Linux
-
-ttyd를 패키지로 설치한 뒤 (`brew install ttyd` / `sudo apt install ttyd`) OS 폴더의 스크립트를 실행한다:
-
-```bash
-./linux/install-service.sh     # Linux: systemd 사용자 유닛 (검증: WSL2 실측 통과)
-./macos/install-service.sh     # macOS: LaunchAgent (로그인 시 시작, 검증: 실기 맥 통과)
-```
-- 설치 시 **세션유지·HTTPS·로그인 사용 여부를 대화형으로 질문**한다. 선택에 필요한 패키지(`ttyd`, 세션유지 선택 시 `tmux`)가 없으면 **설치를 시작하지 않고** 설치 명령을 안내한 뒤 종료한다(HTTPS 선택 시 인증서 파일 존재도 확인). 비대화형·`--dry` 실행은 아래 환경변수로 선택을 대신 지정
-
-- 서비스가 **사용자 본인 권한**으로 실행되므로 Windows판의 PATH 재구성 런처가 필요 없다 — 로그인 셸(`bash -l`/`zsh -l`)이 사용자 환경을 그대로 로드
-- 포트 변경: `TTYD_PORT=8080 ./install-service.sh` 처럼 환경변수로 오버라이드
-- 로그인/HTTPS/세션: `TTYD_CRED=user:pass`, `TTYD_SSL_CERT=… TTYD_SSL_KEY=…`, `TTYD_SESSION=이름`, `TTYD_TMUX=0`(지속 끄기) 환경변수로 오버라이드
-- **세션 유지(tmux)**: tmux가 설치돼 있으면 자동으로 `tmux new -A -s ttyd`로 기동 — 연결이 끊겨도 셸이 살아있고 재접속 시 복원, 다기기 동시접속은 같은 세션 미러링. 미설치 시 로그인 셸로 폴백
-- 미리보기: `--dry` 플래그 (실행 없이 렌더링된 유닛/plist와 명령 출력)
-- Linux 부팅 시 자동 시작: 스크립트가 `loginctl enable-linger`를 시도하며, 실패 시 안내 메시지 출력
-- 제거: 각 폴더의 `uninstall-service.sh`
-- 상세 분석: [docs/porting-analysis.md](docs/porting-analysis.md)
-
-## 6. 이용방법
-
-1. 같은 네트워크의 브라우저에서 `http://<PC의 IP>:33322/` 접속
-2. 터미널 영역 탭 → 소프트 키보드로 일반 입력
-3. 하단 툴바 — **특수키 모드** (기본):
-   - 줄1: **Esc · Tab · ` · - · \ · ' · / · Del · ⏎** — 기호키는 Shift 무장 시 버튼 라벨이 `~ _ | " ?` 로 바뀌어 표시됨
-   - 줄2: **Fn · Shift · Ctrl · Win · Alt · Home · End · PgUp · PgDn** — 모디파이어 순서는 서버 OS의 물리 키보드를 따름 (Windows/Linux: Ctrl·Win·Alt, macOS: Ctrl·⌥·⌘)
-     - **Fn** — 줄1·줄2가 F1~F12로 교체 (다시 누르면 복귀)
-     - **Ctrl/Alt/Shift/Win** — 스티키 원샷: 켜면 빨간색, 다음 키 입력 1회에 조합 후 자동 해제. 소프트 키보드 문자와도 조합됨 (예: Ctrl 켜고 `c` 입력 = Ctrl+C). 한글 입력은 조합하지 않고 그대로 통과. Shift 무장 중에는 기호키 라벨이 Shift 기호로 프리뷰됨
-   - 줄3: **▲▼◀▶** 방향키 + 우측 클러스터
-4. 우측 클러스터 (항상 표시):
-   - **⌶** — 텍스트 선택 모드 토글: 터미널을 터치 드래그로 선택, **전체/복사/붙여넣기/해제** 버튼
-   - **⚙** — 설정 모드 토글: **A−/A+** 폰트 조절, **⟳ 재시작** (한 번 더 눌러 확인 시 새 셸 스폰)
-   - **⌨** — 소프트 키보드 열기/닫기 (모바일 전용 — PC에서는 숨김)
-   - **●** — 연결 상태 (녹색 = 연결됨, 적색 = 재연결 중)
-5. 터미널 우측 하단 **☰** — 툴바 접기/펴기. **모바일**(Android/iOS/iPadOS)은 툴바가 기본 표시, **PC**는 기본 숨김(☰로 열기)
-
-> **참고 — 세션 동작**: **Windows**는 접속마다 **독립 PowerShell**을 스폰한다(동시 접속 시 서로 다른 PID, 상호 간섭 없음). 연결이 끊기면 그 프로세스는 종료되어 **세션 비영속** — 설계상 Windows 한정 결정([docs/upgrade-plan.md](docs/upgrade-plan.md) §8-D). **Linux/macOS**는 tmux 기동 시 **세션이 백그라운드로 유지**되어 재접속에 복원되고, 여러 기기가 붙으면 **같은 세션을 미러링**한다.
->
-> **참고 — Paste 버튼**: Clipboard API는 보안 컨텍스트(HTTPS 또는 localhost)에서만 동작한다. LAN IP로 HTTP 접속 시 Paste 버튼은 브라우저 종류와 무관하게 동작하지 않는다 — 이때는 터미널에 포커스 후 **소프트 키보드의 네이티브 붙여넣기**(길게 눌러 붙여넣기)를 사용하면 된다. Copy는 폴백(`execCommand`)으로 HTTP에서도 동작한다.
->
-> **참고 — 홈 화면 바로가기 아이콘**: 파비콘과 홈 화면 아이콘은 모두 `index.html`에 data URI로 인라인되어 있다 (ttyd `-I`는 단일 파일만 서빙하므로 별도 아이콘 파일을 제공할 수 없음). **Android Chrome**은 data URI 아이콘을 지원하므로 '홈 화면에 추가' 시 전용 아이콘이 적용된다 — 아이콘은 투명 배경이라 런처가 자체 배경 플레이트(원형/스쿼클) 위에 원형 배지를 올린다. **iOS Safari**는 WebKit이 `apple-touch-icon`의 data URI를 무시하고 실제 URL만 허용하므로 홈 화면 추가 시 페이지 스크린샷이 아이콘이 된다 — HTTPS 여부와 무관한, ttyd 단일 파일 서빙의 구조적 한계다. iOS에서 깨끗한 아이콘이 필요하면 **단축어(Shortcuts)** 앱에서 'URL 열기' 바로가기를 만들고 커스텀 아이콘으로 루트의 `icon.png`를 지정하면 된다.
-
-## 7. 추후 개발 예정
-
-- [x] **인증** — ttyd `-c user:pass` basic auth를 런처에 옵션화(`CRED`/`TTYD_CRED`). 단일 계정·다기기 동시접속. **HTTPS 동반 필수**
-- [x] **HTTPS** — `-S/-C/-K` SSL을 런처에 옵션화(`SSL_CERT`·`SSL_KEY` / `TTYD_SSL_CERT`·`TTYD_SSL_KEY`). 적용 시 Paste 버튼도 전 브라우저 활성
-- [x] **세션 유지** — **Linux/macOS: tmux 백그라운드 세션 + 다기기 미러링**(자동, `TTYD_TMUX=0`로 해제). **Windows: 미지원**(ConPTY 재부착 레이어 부재 — §8-D·부록 A)
-- [ ] **쉘 선택 UI** — PowerShell / cmd / WSL 전환
-- [x] **PWA** — 인라인 web manifest(standalone·아이콘 192/512·theme) 임베드(Chrome 파싱 무오류 확인). **홈 화면 설치는 HTTPS(신뢰 인증서)+실기기 필요**; 오프라인·자동 설치 배너는 SW 서빙 불가로 미지원(§4.5·§3.5)
-
-상세 실현성 판정·구현 경로·미결 결정사항: [docs/upgrade-plan.md](docs/upgrade-plan.md)
-
-**구현 계획 없음**: 파일 전송(trzsz/ZMODEM), 커스텀 키 매크로
-
-## 8. 라이선스 및 크레딧
-
-- [ttyd](https://github.com/tsl0922/ttyd) — MIT License
-- [xterm.js](https://github.com/xtermjs/xterm.js) — MIT License
-- [NSSM](https://nssm.cc/) — Public Domain
+| 구성 요소 | 용도 / 포함 형태 | 라이선스 |
+|-----------|------------------|----------|
+| [ttyd](https://github.com/tsl0922/ttyd) v1.7.7 | 터미널 웹 중계 서버. Windows용 바이너리 동봉(`bin/ttyd.exe`), Linux/macOS는 패키지로 별도 설치 | [MIT](https://github.com/tsl0922/ttyd/blob/main/LICENSE) |
+| [xterm.js](https://github.com/xtermjs/xterm.js) 5.3.0 (+ fit · web-links addon) | 브라우저 터미널 렌더링. `public/index.html`에 인라인 포함, 원본은 `public/vendor/` | [MIT](https://github.com/xtermjs/xterm.js/blob/master/LICENSE) |
+| [NSSM](https://nssm.cc/) 2.24 | Windows 서비스 등록. 바이너리 동봉(`bin/nssm.exe`) | Public Domain |
+| [tmux](https://github.com/tmux/tmux) | Linux/macOS 세션 유지. 동봉하지 않으며 사용자가 패키지로 설치 | [ISC](https://github.com/tmux/tmux/blob/master/COPYING) |
