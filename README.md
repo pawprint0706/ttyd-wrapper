@@ -1,5 +1,7 @@
 # ttyd-wrapper
 
+**한국어** | [English](README.en.md)
+
 **모바일 브라우저에서 내 PC 터미널을 쓰기 위한 [ttyd](https://github.com/tsl0922/ttyd) 래퍼** — 기본 ttyd 웹 페이지에서는 불가능한 **폰트 크기 조절**과 **특수키 입력**(Esc, Tab, 방향키, Ctrl 조합 등)을 모바일 친화적인 웹 UI로 제공한다.
 
 Windows / Linux / macOS 지원 (전 플랫폼 실측 검증 완료).
