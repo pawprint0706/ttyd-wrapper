@@ -148,9 +148,22 @@ echo   [Login] Single account (basic auth), usable from several devices.
 echo           Credentials travel base64 (plaintext) - use together with HTTPS.
 set /p "ANS_L=  Enable login? [y/N]: "
 if /i not "%ANS_L%"=="y" goto :after_login
+:ask_login
 set /p "CRED_USER=    Username: "
 set /p "CRED_PASS=    Password: "
-set "CRED=%CRED_USER%:%CRED_PASS%"
+:: cmd re-expands these values later (echo/if/AppParameters), so any of
+:: ^& ( ) percent quotemark angle-pipe or space would corrupt the script
+:: mid-install. Verify via PowerShell (env vars skip the parser) and re-ask.
+:: IndexOfAny char codes: space 32, quote 34, ampersand 38, parens 40/41,
+:: lt/gt 60/62, pipe 124, exclamation 33, caret 94, percent 37.
+powershell -NoProfile -Command "exit ([int]((($env:CRED_USER + ':' + $env:CRED_PASS).IndexOfAny([char[]]@(32,34,38,40,41,60,62,124,33,94,37))) -ge 0))" >nul
+if "%errorlevel%"=="0" set "CRED=%CRED_USER%:%CRED_PASS%"
+if "%errorlevel%"=="0" goto :after_login
+echo         [WARN] Username/password contains a character the batch installer
+echo                cannot carry safely (ampersand, parenthesis, percent, quote,
+echo                lt/gt, pipe, exclamation, caret, space). Pick a plain one
+echo                and re-enter.
+goto :ask_login
 :after_login
 echo.
 

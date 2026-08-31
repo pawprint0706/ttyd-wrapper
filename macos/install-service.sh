@@ -80,9 +80,17 @@ if [[ "$DRY" == "0" && -t 0 ]]; then
     echo "  Credentials are sent base64 (effectively plaintext) - pair with HTTPS."
     if ask_yn "  Enable login?" N; then
         ENABLE_AUTH=1
-        read -r -p "    Username: " _lu || true
-        read -r -s -p "    Password: " _lp || true; echo
-        CRED="${_lu:-}:${_lp:-}"
+        # The credential is rendered into the plist XML: & < > would produce
+        # an invalid file that launchd refuses to load - re-ask.
+        while :; do
+            read -r -p "    Username: " _lu || true
+            read -r -s -p "    Password: " _lp || true; echo
+            CRED="${_lu:-}:${_lp:-}"
+            case "$CRED" in
+                *'&'*|*'<'*|*'>'*) echo "    [WARN] avoid &, < and > in the credentials (plist XML-unsafe) - re-enter" >&2; continue ;;
+            esac
+            break
+        done
     else ENABLE_AUTH=0; fi
     echo
 else
