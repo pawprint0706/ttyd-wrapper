@@ -28,21 +28,33 @@ if ($prof -and (Test-Path -LiteralPath $prof)) {
 $machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
 
 # --- User PATH: read fresh from the user's registry hive ---
+# At boot the service may start while the profile service is still loading
+# NTUSER.DAT. A failed load + an unmounted hive would silently drop the
+# user PATH (and it sticks - the psmux server freezes it into every
+# session it spawns), so wait briefly and retry instead of giving up.
 $userPath = $null
 if ($sid) {
     $hiveKey = "Registry::HKEY_USERS\$sid\Environment"
     $loadedHere = $false
 
-    if (-not (Test-Path $hiveKey) -and $prof) {
-        # Hive not loaded (service started before user logon) - load it briefly
-        reg.exe load "HKU\$sid" (Join-Path $prof 'NTUSER.DAT') *> $null
-        $loadedHere = ($LASTEXITCODE -eq 0)
+    $deadline = (Get-Date).AddSeconds(15)
+    while (-not (Test-Path $hiveKey) -and (Get-Date) -lt $deadline) {
+        if ($prof -and -not $loadedHere) {
+            # Hive not loaded (service started before user logon) - load it briefly
+            reg.exe load "HKU\$sid" (Join-Path $prof 'NTUSER.DAT') *> $null
+            $loadedHere = ($LASTEXITCODE -eq 0)
+        }
+        if (Test-Path $hiveKey) { break }
+        Start-Sleep -Milliseconds 500
     }
 
     if (Test-Path $hiveKey) {
         # REG_EXPAND_SZ values expand against OUR process env; USERPROFILE
         # was pointed at the user above, so %USERPROFILE% expands correctly.
         $userPath = (Get-ItemProperty -Path $hiveKey -Name Path -ErrorAction SilentlyContinue).Path
+        Write-Output "[$(Get-Date -Format s)] launcher: user PATH resolved ($(($userPath -split ';').Count) entries)"
+    } else {
+        Write-Output "[$(Get-Date -Format s)] launcher: WARNING - user hive unavailable after 15s; shell PATH will lack user entries (machine PATH only)"
     }
 
     if ($loadedHere) {
@@ -52,6 +64,7 @@ if ($sid) {
 }
 
 $env:Path = if ($userPath) { "$machinePath;$userPath" } else { $machinePath }
+Write-Output "[$(Get-Date -Format s)] launcher: PATH composed ($($env:Path.Split(';').Count) entries), starting ttyd"
 
 # --- Run ttyd with the pass-through arguments; propagate its exit code ---
 & (Join-Path $PSScriptRoot 'ttyd.exe') @args
