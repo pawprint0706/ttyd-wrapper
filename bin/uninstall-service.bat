@@ -34,6 +34,10 @@ echo Stopping and removing service "%SERVICE_NAME%"...
 netsh advfirewall firewall delete rule name="%SERVICE_NAME%" >nul 2>&1
 echo Firewall rule removed.
 
+:: Undo the psmux default-command block added by install-service.bat, so
+:: panes don't keep pointing at a removed wrapper.
+if exist "%BIN_DIR%\configure-psmux.ps1" powershell -NoProfile -ExecutionPolicy Bypass -File "%BIN_DIR%\configure-psmux.ps1" -Remove
+
 echo.
 echo [OK] Service uninstalled.
 pause

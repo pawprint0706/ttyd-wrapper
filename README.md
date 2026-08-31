@@ -41,8 +41,8 @@ ttyd·NSSM 바이너리가 동봉되어 있어 ttyd 자체는 **사전 설치할
 - 설치 스크립트가 관리자 승격(UAC), 방화벽 규칙(TCP 33322) 등록, 부팅 자동 시작·크래시 자동 재시작 설정까지 처리한다.
 - 설치 중 **세션 유지(psmux) / HTTPS / 로그인** 사용 여부를 물어본다 (세션 유지는 Enter 치면 켬, 나머지는 모두 끔).
 - 세션 유지 선택 시 psmux가 없으면 설치를 시작하지 않고 `winget install psmux`를 안내한 뒤 종료한다 (세션 이름 변경은 `TTYD_SESSION`, 끄기는 `TTYD_PMUX=0`).
+- 세션 유지 선택 시 psmux 설정에 **pane 환경 복구 래퍼**(`shell-env-repair.ps1`)를 등록한다. psmux는 pane 환경을 서비스 토큰(LocalSystem) 기준으로 재조립해 터미널 사용자의 본인 PATH(`.local\bin`, scoop shims, npm 등)가 누락되는데, 래퍼가 설치기 런처처럼 HKCU PATH를 다시 읽어온다. 이미 `default-command`를 쓰는 `.psmux.conf`가 있으면 건드리지 않고 안내만 한다. `uninstall-service.bat`가 정리한다.
 - 반드시 **본인 데스크톱 세션에서 실행**한다 — 웹 터미널 안에서 실행하면 스크립트가 차단한다.
-- 실행될 명령 미리보기: `bin\install-service.bat /dry`
 - 포트·셸 등 변경: `bin\install-service.bat` 상단 Configuration 블록 수정 후 재설치.
 
 ### Linux
@@ -137,6 +137,8 @@ ttyd-wrapper/
 │   ├── install-service.bat    # 서비스 설치 (UAC 승격·방화벽·자동 시작)
 │   ├── uninstall-service.bat  # 서비스 삭제
 │   ├── service-launcher.ps1   # 서비스 기동 시 사용자 PATH 재구성 런처
+│   ├── shell-env-repair.ps1   # psmux pane용 사용자 PATH 복구 래퍼 (psmux가 pane 환경을 LocalSystem 기준으로 재조립)
+│   ├── configure-psmux.ps1    # 위 래퍼를 .psmux.conf default-command에 등록/해제
 │   └── ttyd.bat               # 수동 실행
 ├── linux/                     # ── Linux (systemd 사용자 유닛) ──
 │   ├── install-service.sh / uninstall-service.sh

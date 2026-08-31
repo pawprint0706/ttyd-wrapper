@@ -80,6 +80,7 @@ if "%DRYRUN%"=="1" (
     echo   Service : %SERVICE_NAME%
     echo   Port    : %PORT%
     echo   Session : %SPAWN_CMD%
+    echo   Env fix : if session enabled, wires %BIN_DIR%\shell-env-repair.ps1 into psmux's default-command (skipped if it already sets default-command)
     echo   Auth    : cred=[%CRED%]  scheme=%SCHEME%
     echo.
     echo [DRY RUN] Commands that would be executed:
@@ -183,6 +184,26 @@ if defined SSL_CERT if defined SSL_KEY (
     if not exist "%SSL_CERT%" ( echo [ERROR] Certificate not found: %SSL_CERT% & echo         Obtain a cert first ^(acme.sh/certbot + DDNS domain^), then re-run. & pause & exit /b 1 )
     if not exist "%SSL_KEY%"  ( echo [ERROR] Private key not found: %SSL_KEY% & pause & exit /b 1 )
 )
+
+:: ---------- psmux pane env repair (persistent session) ----------
+:: psmux rebuilds each pane's environment from the spawning token's
+:: registry, so under LocalSystem panes lose the terminal user's HKCU
+:: PATH (claude, scoop shims, npm... invisible even though the service
+:: itself has a correct PATH). Wire shell-env-repair.ps1 into psmux's
+:: default-command so every pane re-resolves the user PATH first.
+:: (Sequential ifs + goto, not a parenthesized block: %errorlevel% in a
+:: block is expanded before the block runs.)
+if not "%ENABLE_SESSION%"=="1" goto :after_psmux_env
+if not exist "%BIN_DIR%\shell-env-repair.ps1" ( echo [ERROR] shell-env-repair.ps1 not found: %BIN_DIR%\shell-env-repair.ps1 & pause & exit /b 1 )
+echo === Configuring psmux pane env repair ===
+powershell -NoProfile -ExecutionPolicy Bypass -File "%BIN_DIR%\configure-psmux.ps1" -WrapperPath "%BIN_DIR%\shell-env-repair.ps1"
+if "%errorlevel%"=="2" (
+    echo [WARN] Existing psmux default-command was left untouched - see note above.
+    goto :after_psmux_env
+)
+if not "%errorlevel%"=="0" ( echo [ERROR] psmux config update failed & pause & exit /b 1 )
+:after_psmux_env
+echo.
 
 echo === Installing ===
 echo   Service : %SERVICE_NAME%
