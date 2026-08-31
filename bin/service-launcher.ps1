@@ -66,6 +66,15 @@ if ($sid) {
 $env:Path = if ($userPath) { "$machinePath;$userPath" } else { $machinePath }
 Write-Output "[$(Get-Date -Format s)] launcher: PATH composed ($($env:Path.Split(';').Count) entries), starting ttyd"
 
+# NOTE: no pre-warm of the psmux session here. A session spawned by this
+# LocalSystem service is invisible-or-worse to user-context clients:
+# psmux's client-side liveness check (OpenProcess QUERY_LIMITED_INFORMATION
+# on the recorded server PID) is denied for SYSTEM-owned server processes,
+# so a user-context "psmux ls" mistakes the live server for stale and
+# DELETES its registry files. The session is created by the first web
+# connect instead (ttyd spawn), which keeps the server lifecycle inside
+# the service environment.
+
 # --- Run ttyd with the pass-through arguments; propagate its exit code ---
 & (Join-Path $PSScriptRoot 'ttyd.exe') @args
 exit $LASTEXITCODE

@@ -27,11 +27,24 @@ if ($env:TTYD_USER_SID) {
     # User PATH: raw REG_EXPAND_SZ, expanded against OUR env - USERPROFILE
     # arrives pointed at the terminal user (set by service-launcher.ps1).
     $userPath = $null
+    $loadedHive = $false
     $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$env:TTYD_USER_SID\Environment")
+    if (-not $key -and $env:TTYD_USER_PROFILE) {
+        # Hive not mounted (boot pre-warm raced the user logon) - mount briefly
+        reg.exe load "HKU\$env:TTYD_USER_SID" (Join-Path $env:TTYD_USER_PROFILE 'NTUSER.DAT') *> $null
+        $loadedHive = ($LASTEXITCODE -eq 0)
+        if ($loadedHive) {
+            $key = [Microsoft.Win32.Registry]::Users.OpenSubKey("$env:TTYD_USER_SID\Environment")
+        }
+    }
     if ($key) {
         $raw = $key.GetValue('Path', $null, [Microsoft.Win32.RegistryValueOptions]::DoNotExpandEnvironmentNames)
         $key.Close()
         if ($raw) { $userPath = [Environment]::ExpandEnvironmentVariables($raw) }
+    }
+    if ($loadedHive) {
+        [gc]::Collect(); [gc]::WaitForPendingFinalizers()
+        reg.exe unload "HKU\$env:TTYD_USER_SID" *> $null
     }
 
     if ($userPath) {
