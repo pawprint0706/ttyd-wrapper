@@ -976,8 +976,25 @@
       gesture.acc += gesture.lastY - e.clientY; // finger up = scroll down
       const lines = Math.trunc(gesture.acc / gesture.cellH);
       if (lines !== 0) {
-        term.scrollLines(lines);
         gesture.acc -= lines * gesture.cellH;
+        if (term.modes.mouseTrackingMode !== 'none' || term.buffer.active.type === 'alternate') {
+          // Full-screen TUIs (claude CLI etc.) draw in the alt buffer or take
+          // over the mouse protocol, where scrollLines() is a silent no-op.
+          // Feed a real wheel event into xterm instead so it emits exactly
+          // what a desktop wheel would: a mouse report to the app, or the
+          // arrow-key fallback for alt-screen apps that never enabled mouse.
+          const screen = container.querySelector('.xterm-screen');
+          (screen || container).dispatchEvent(new WheelEvent('wheel', {
+            bubbles: true,
+            cancelable: true,
+            deltaMode: WheelEvent.DOM_DELTA_LINE,
+            deltaY: lines,
+            clientX: e.clientX,
+            clientY: e.clientY,
+          }));
+        } else {
+          term.scrollLines(lines);
+        }
       }
       gesture.lastY = e.clientY;
     }
