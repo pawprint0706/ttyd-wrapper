@@ -163,7 +163,7 @@ if "%ENABLE_SESSION%"=="1" if not defined PSMUX (
     echo [ERROR] Persistent session needs psmux, which was not found.
     echo         Install it first, then re-run this installer:
     echo           winget install psmux
-    echo         (scoop / choco / cargo also work; see https://github.com/psmux/psmux)
+    echo         scoop / choco / cargo also work - see github.com/psmux/psmux
     pause & exit /b 1
 )
 if defined SSL_CERT if defined SSL_KEY (
