@@ -6,9 +6,13 @@ setlocal EnableExtensions
 ::  Usage:  install-service.bat        (interactive install + start)
 ::          install-service.bat /dry   (print commands only, no prompts)
 ::
-::  You are asked (in the elevated window) whether to enable HTTPS and
-::  login. Pre-set CRED / SSL_CERT / SSL_KEY below to skip those prompts.
-::  Persistent background sessions are NOT available on Windows.
+::  You are asked (in the elevated window) whether to enable a persistent
+::  session, HTTPS and login. Pre-set ENABLE_SESSION (y/n) / CRED /
+::  SSL_CERT / SSL_KEY below to skip those prompts.
+::
+::  Persistent sessions use psmux (https://github.com/psmux/psmux) - the
+::  session survives disconnects and is mirrored to every device. Install
+::  it first with: winget install psmux
 ::
 ::  The service runs service-launcher.ps1, which re-resolves the
 ::  user's PATH from the registry at EVERY service start - so
@@ -21,7 +25,17 @@ set "SERVICE_DISPLAY=ttyd Web Terminal"
 set "PORT=33322"
 set "SHELL_CWD=%USERPROFILE%"
 set "SHELL_CMD=powershell.exe"
+:: Session name for persistent (psmux) sessions.
+if not defined SESSION set "SESSION=%TTYD_SESSION%"
+if "%SESSION%"=="" set "SESSION=ttyd"
 :: Optional: pre-set to skip the interactive prompts. Leave blank to be asked.
+:: ENABLE_SESSION: y/n - persistent session via psmux (see header).
+:: Pre-set here OR via the environment (inherited like the other TTYD_* vars;
+:: TTYD_PMUX=0 forces it off, mirroring the Unix TTYD_TMUX=0).
+if "%TTYD_PMUX%"=="0" set "ENABLE_SESSION=0"
+:: Accept y/n presets too (kept for the interactive prompts below).
+if /i "%ENABLE_SESSION%"=="y" set "ENABLE_SESSION=1"
+if /i "%ENABLE_SESSION%"=="n" set "ENABLE_SESSION=0"
 set "CRED="
 set "SSL_CERT="
 set "SSL_KEY="
@@ -37,8 +51,19 @@ set "PSEXE=%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe"
 set "INDEX=%ROOT%\public\index.html"
 set "LOG_DIR=%ROOT%\logs"
 
+:: ---------- Detect psmux (optional persistent session) ----------
+:: Bake the absolute path into the service cmdline - the service does not
+:: inherit the user PATH, and the launcher only re-resolves it for itself.
+:: Honors TTYD_PMUX=0 the same way the manual launcher does.
+set "PSMUX="
+if not "%TTYD_PMUX%"=="0" for /f "delims=" %%p in ('where psmux.exe 2^>nul') do if not defined PSMUX set "PSMUX=%%p"
+
 set "DRYRUN=0"
 if /i "%~1"=="/dry" set "DRYRUN=1"
+:: Derive the session choice for /dry (a real install asks interactively).
+if "%DRYRUN%"=="1" if not defined ENABLE_SESSION (
+    if defined PSMUX ( set "ENABLE_SESSION=1" ) else ( echo [DRY] psmux not detected - install with: winget install psmux & set "ENABLE_SESSION=0" )
+)
 
 :: Build auth/SSL flags from current config (used for /dry and as defaults).
 call :build_opts
@@ -54,11 +79,12 @@ if "%DRYRUN%"=="1" (
     echo === ttyd-wrapper service installer [DRY RUN] ===
     echo   Service : %SERVICE_NAME%
     echo   Port    : %PORT%
+    echo   Session : %SPAWN_CMD%
     echo   Auth    : cred=[%CRED%]  scheme=%SCHEME%
     echo.
     echo [DRY RUN] Commands that would be executed:
     echo   "%NSSM%" install %SERVICE_NAME% "%PSEXE%"
-    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+    echo   "%NSSM%" set %SERVICE_NAME% AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SPAWN_CMD%
     echo   "%NSSM%" set %SERVICE_NAME% AppEnvironmentExtra "TTYD_USER_SID=<your-sid>" "TTYD_USER_PROFILE=%USERPROFILE%"
     echo   "%NSSM%" set %SERVICE_NAME% AppDirectory "%BIN_DIR%"
     echo   "%NSSM%" start %SERVICE_NAME%
@@ -88,8 +114,24 @@ if not "%errorlevel%"=="0" (
 :: ---------- Interactive feature selection (elevated console) ----------
 echo.
 echo === Configure ttyd-wrapper ===
-echo   [Note] Persistent background sessions are not available on Windows
-echo          (no tmux-style reattach for PowerShell). Linux/macOS provide it.
+echo.
+:: Session persistence prompt (skipped if ENABLE_SESSION is pre-set in Configuration)
+if defined ENABLE_SESSION goto :after_session
+echo   [Session persistence] psmux keeps your shell (and running programs) alive
+echo           across disconnects; reconnecting restores it and multiple devices
+echo           mirror the same session. Requires 'psmux' (psmux/psmux on GitHub).
+if defined PSMUX (
+    set /p "ANS_S=  Enable persistent session? [Y/n]: "
+) else (
+    echo           psmux not detected - install it with: winget install psmux
+    set /p "ANS_S=  Enable persistent session? [y/N]: "
+)
+if not defined ANS_S if defined PSMUX set "ANS_S=y"
+if not defined ANS_S set "ANS_S=n"
+if /i "%ANS_S%"=="y" ( set "ENABLE_SESSION=1" ) else ( set "ENABLE_SESSION=0" )
+:after_session
+if /i "%ENABLE_SESSION%"=="y" set "ENABLE_SESSION=1"
+if /i "%ENABLE_SESSION%"=="n" set "ENABLE_SESSION=0"
 echo.
 :: HTTPS prompt (skipped if SSL_CERT is pre-set in Configuration)
 if defined SSL_CERT goto :after_https
@@ -114,6 +156,16 @@ echo.
 
 :: Rebuild flags from the selections and validate certificate files.
 call :build_opts
+
+:: Pre-flight: session persistence needs psmux (stop before installing anything,
+:: matching the Linux/macOS package pre-flight).
+if "%ENABLE_SESSION%"=="1" if not defined PSMUX (
+    echo [ERROR] Persistent session needs psmux, which was not found.
+    echo         Install it first, then re-run this installer:
+    echo           winget install psmux
+    echo         (scoop / choco / cargo also work; see https://github.com/psmux/psmux)
+    pause & exit /b 1
+)
 if defined SSL_CERT if defined SSL_KEY (
     if not exist "%SSL_CERT%" ( echo [ERROR] Certificate not found: %SSL_CERT% & echo         Obtain a cert first ^(acme.sh/certbot + DDNS domain^), then re-run. & pause & exit /b 1 )
     if not exist "%SSL_KEY%"  ( echo [ERROR] Private key not found: %SSL_KEY% & pause & exit /b 1 )
@@ -123,6 +175,7 @@ echo === Installing ===
 echo   Service : %SERVICE_NAME%
 echo   Binary  : %TTYD%
 echo   Port    : %PORT%
+echo   Session : %SPAWN_CMD%
 echo   Shell   : %SHELL_CMD% (cwd: %SHELL_CWD%)
 echo   Login   : cred=[%CRED%]   HTTPS: %SCHEME%
 echo   Logs    : %LOG_DIR%
@@ -148,7 +201,7 @@ if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
 "%NSSM%" install "%SERVICE_NAME%" "%PSEXE%"
 if not "%errorlevel%"=="0" ( echo [ERROR] nssm install failed & pause & exit /b 1 )
 
-"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SHELL_CMD%
+"%NSSM%" set "%SERVICE_NAME%" AppParameters -NoProfile -NoLogo -ExecutionPolicy Bypass -File "%LAUNCHER%" --writable -t platform=windows%OPTS% -p %PORT% -I "%INDEX%" --cwd "%SHELL_CWD%" %SPAWN_CMD%
 "%NSSM%" set "%SERVICE_NAME%" AppDirectory "%BIN_DIR%"
 "%NSSM%" set "%SERVICE_NAME%" DisplayName "%SERVICE_DISPLAY%"
 "%NSSM%" set "%SERVICE_NAME%" Description "ttyd web terminal wrapper - relays %SHELL_CMD% over %SCHEME% port %PORT%"
@@ -210,4 +263,8 @@ if defined SSL_CERT if defined SSL_KEY (
     set "OPTS=%OPTS% -S -C "%SSL_CERT%" -K "%SSL_KEY%""
     set "SCHEME=https"
 )
+:: Spawn command: persistent psmux session when chosen and available,
+:: otherwise a fresh PowerShell per connection (as before).
+set "SPAWN_CMD=%SHELL_CMD%"
+if "%ENABLE_SESSION%"=="1" if defined PSMUX set "SPAWN_CMD="%PSMUX%" new -A -s %SESSION%"
 goto :eof

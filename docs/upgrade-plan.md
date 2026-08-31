@@ -299,6 +299,7 @@ PB1·PB2·PB3 구현·검증 완료. Windows 세션유지(D=b)는 계획대로 �
 - **C. 인증서 전략** — 공개+PWA 전제 시 **DDNS 도메인 + `acme.sh`/`certbot`의 무료 인증서(Let's Encrypt/ZeroSSL) cert-only 발급·자동 갱신** 후 ttyd `-C/-K` 주입(상세 절차 §3.5 "PWA 정상 이용 전제"). 순수 IP엔 발급 불가. 도메인·인증서 미확보 시 자체서명만 가능하고 **PWA 설치 제한**(홈화면 바로가기 수준).
 - **D. Windows 세션 유지 방향** — ✅ **확정: (b) Windows 비영속 유지.** 세션 유지·미러링(항목 1·2)은 Windows 미제공, Linux/macOS 전용으로 한정. Windows도 로그인·HTTPS·PWA(항목 3·4·5)는 전부 적용. 이로써 §8 미결 없음 — 남은 것은 구현.
   - 미채택 대안(기록): (a) 셸을 WSL bash+tmux로 교체(PowerShell 포기), (a′) PowerShell을 WSL/MSYS2 tmux로 interop 지속(실험적·검증 필요), (c) 자체 지속 백엔드 — Windows에서 세션유지+완전 PWA+미러링을 모두 여는 유일 경로(상세 **부록 A / Scope C**).
+  - **2026-08 갱신**: ConPTY 네이티브 tmux 구현 [psmux](https://github.com/psmux/psmux) 출현으로 (b)를 조건부 완화. 설치 시 psmux 존재를 확인해 `tmux new -A -s` 배선과 동일하게 `psmux new -A -s <name>`으로 스폰 교체(미설치 시 기존대로 비영속 PowerShell 폴백, `winget install psmux` 설치 유도). 사용자 설치 도구(비동봉)이므로 Unix tmux 패턴의 사전점검·안내·절대경로 베이킹(e13353d)을 그대로 따름.
 - **E. 다중 세션 UI 수준** — ✅ **Scope B 확정: 다중 세션 미구현**(단일 세션만).
 
 ## 부록 A. Scope C — 자체 지속 백엔드 (Windows 완전 지원 경로)

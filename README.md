@@ -30,7 +30,7 @@ http://<호스트 PC의 IP>:33322/        ← HTTPS를 켰다면 https://
 
 ### Windows
 
-ttyd·NSSM 바이너리가 동봉되어 있어 **사전 설치할 것이 없다**. 터미널로 PowerShell을 중계한다.
+ttyd·NSSM 바이너리가 동봉되어 있어 ttyd 자체는 **사전 설치할 것이 없다**. 터미널로 PowerShell을 중계한다. 세션 유지 기능을 쓰려면 [psmux](https://github.com/psmux/psmux)를 먼저 설치한다: `winget install psmux`
 
 | 작업 | 명령 |
 |------|------|
@@ -39,7 +39,8 @@ ttyd·NSSM 바이너리가 동봉되어 있어 **사전 설치할 것이 없다*
 | 수동 실행 (서비스 없이) | `bin\ttyd.bat` |
 
 - 설치 스크립트가 관리자 승격(UAC), 방화벽 규칙(TCP 33322) 등록, 부팅 자동 시작·크래시 자동 재시작 설정까지 처리한다.
-- 설치 중 **HTTPS / 로그인** 사용 여부를 물어본다 (Enter만 치면 모두 끔).
+- 설치 중 **세션 유지(psmux) / HTTPS / 로그인** 사용 여부를 물어본다 (세션 유지는 Enter 치면 켬, 나머지는 모두 끔).
+- 세션 유지 선택 시 psmux가 없으면 설치를 시작하지 않고 `winget install psmux`를 안내한 뒤 종료한다 (세션 이름 변경은 `TTYD_SESSION`, 끄기는 `TTYD_PMUX=0`).
 - 반드시 **본인 데스크톱 세션에서 실행**한다 — 웹 터미널 안에서 실행하면 스크립트가 차단한다.
 - 실행될 명령 미리보기: `bin\install-service.bat /dry`
 - 포트·셸 등 변경: `bin\install-service.bat` 상단 Configuration 블록 수정 후 재설치.
@@ -72,17 +73,20 @@ ttyd·NSSM 바이너리가 동봉되어 있어 **사전 설치할 것이 없다*
 - 설치 질문과 미리보기(`--dry`)는 Linux와 동일하다.
 - 첫 접속 때 macOS 방화벽 허용 팝업이 뜨면 '허용'을 누른다.
 
-### 설정 변경 (Linux / macOS 공통)
+### 설정 변경 (플랫폼 공통)
 
 설치·수동 실행 스크립트는 환경변수로 오버라이드한다. 예: `TTYD_PORT=8080 ./linux/install-service.sh`
 
-| 환경변수 | 의미 |
-|----------|------|
-| `TTYD_PORT` | 포트 (기본 33322) |
-| `TTYD_CRED=user:pass` | 로그인(basic auth) 활성화 |
-| `TTYD_SSL_CERT` / `TTYD_SSL_KEY` | HTTPS 인증서·키 경로 |
-| `TTYD_SESSION` | tmux 세션 이름 (기본 `ttyd`) |
-| `TTYD_TMUX=0` | 세션 유지 끄기 (일반 로그인 셸 사용) |
+| 환경변수 | 의미 | 지원 |
+|----------|------|------|
+| `TTYD_PORT` | 포트 (기본 33322) | Linux/macOS |
+| `TTYD_CRED=user:pass` | 로그인(basic auth) 활성화 | Linux/macOS |
+| `TTYD_SSL_CERT` / `TTYD_SSL_KEY` | HTTPS 인증서·키 경로 | Linux/macOS |
+| `TTYD_SESSION` | 세션 유지 세션 이름 (기본 `ttyd`) — Linux/macOS는 tmux, Windows는 psmux | 공통 |
+| `TTYD_TMUX=0` | 세션 유지 끄기 (일반 로그인 셸 사용) | Linux/macOS |
+| `TTYD_PMUX=0` | 세션 유지 끄기 (접속마다 독립 PowerShell) | Windows |
+
+> **Windows 참고**: 포트·로그인·HTTPS·세션 유지는 `bin\install-service.bat` 상단 Configuration 블록에서 미리 채워 질문을 건너뛸 수도 있다 (`PORT`, `CRED`, `SSL_CERT`/`SSL_KEY`, `ENABLE_SESSION`).
 
 ### HTTPS 인증서 준비 — 무료 DDNS + 무료 인증서
 
@@ -102,7 +106,7 @@ ttyd·NSSM 바이너리가 동봉되어 있어 **사전 설치할 것이 없다*
 | 키 조합 | Ctrl / Alt / Shift / Win 스티키 토글 — 켜고 다음 입력 1회에 자동 조합 (예: Ctrl 켜고 `c` = Ctrl+C) |
 | 폰트 크기 조절 | 설정 모드에서 A− / A+ 버튼으로 10~32px 실시간 조절 |
 | 텍스트 선택 | 터치 드래그로 선택 + 전체선택 / 복사 / 붙여넣기 버튼 |
-| 세션 유지 | **Linux/macOS**: tmux 세션 — 연결이 끊겨도 작업이 유지되고 재접속 시 복원, 여러 기기가 같은 세션을 미러링. **Windows**: 미지원 (접속마다 독립 PowerShell) |
+| 세션 유지 | 연결이 끊겨도 작업이 유지되고 재접속 시 복원, 여러 기기가 같은 세션을 미러링. **Linux/macOS**: tmux 세션. **Windows**: psmux 세션 (설치 시 선택, 미설치 시 접속마다 독립 PowerShell) |
 | 보안 옵션 | 로그인(basic auth) + HTTPS — 설치 시 선택 |
 | 자동 재연결 | 끊기면 지수 백오프(1~10초)로 재접속, 연결 상태 표시등(●) 제공 |
 | 오프라인 완결 | 모든 리소스가 단일 HTML에 인라인 — 외부 CDN 의존 0, 망분리 환경에서도 동작 |
@@ -165,3 +169,4 @@ ttyd-wrapper/
 | [xterm.js](https://github.com/xtermjs/xterm.js) 5.3.0 (+ fit · web-links addon) | 브라우저 터미널 렌더링. `public/index.html`에 인라인 포함, 원본은 `public/vendor/` | [MIT](https://github.com/xtermjs/xterm.js/blob/master/LICENSE) |
 | [NSSM](https://nssm.cc/) 2.24 | Windows 서비스 등록. 바이너리 동봉(`bin/nssm.exe`) | Public Domain |
 | [tmux](https://github.com/tmux/tmux) | Linux/macOS 세션 유지. 동봉하지 않으며 사용자가 패키지로 설치 | [ISC](https://github.com/tmux/tmux/blob/master/COPYING) |
+| [psmux](https://github.com/psmux/psmux) | Windows 세션 유지. 동봉하지 않으며 사용자가 설치 (`winget install psmux`) | [MIT](https://github.com/psmux/psmux/blob/main/LICENSE) |

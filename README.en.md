@@ -30,7 +30,7 @@ http://<host PC's IP>:33322/        ← use https:// if you enabled HTTPS
 
 ### Windows
 
-The ttyd and NSSM binaries are bundled — **nothing to preinstall**. PowerShell is served as the terminal.
+The ttyd and NSSM binaries are bundled — **nothing to preinstall** for ttyd itself. PowerShell is served as the terminal. For session persistence, install [psmux](https://github.com/psmux/psmux) first: `winget install psmux`
 
 | Task | Command |
 |------|---------|
@@ -39,7 +39,8 @@ The ttyd and NSSM binaries are bundled — **nothing to preinstall**. PowerShell
 | Run manually (without the service) | `bin\ttyd.bat` |
 
 - The install script handles admin elevation (UAC), firewall rule registration (TCP 33322), auto start at boot, and auto restart on crash.
-- During install it asks whether to enable **HTTPS / login** (just press Enter to leave both off).
+- During install it asks whether to enable **session persistence (psmux) / HTTPS / login** (session persistence defaults to on when you press Enter; the others default to off).
+- If session persistence is selected but psmux is missing, the installer stops before making any changes and prints `winget install psmux` instead (session name via `TTYD_SESSION`, disable with `TTYD_PMUX=0`).
 - Be sure to **run it from your own desktop session** — the script blocks itself if run inside the web terminal.
 - Preview the commands to be executed: `bin\install-service.bat /dry`
 - To change the port, shell, etc.: edit the Configuration block at the top of `bin\install-service.bat` and reinstall.
@@ -72,17 +73,20 @@ Prerequisite: `brew install ttyd` — add `tmux` if you want session persistence
 - The install questions and preview (`--dry`) are the same as on Linux.
 - If the macOS firewall popup appears on first connection, click 'Allow'.
 
-### Changing settings (Linux / macOS)
+### Changing settings (all platforms)
 
 The install and manual-run scripts are overridden via environment variables. Example: `TTYD_PORT=8080 ./linux/install-service.sh`
 
-| Variable | Meaning |
-|----------|---------|
-| `TTYD_PORT` | Port (default 33322) |
-| `TTYD_CRED=user:pass` | Enable login (basic auth) |
-| `TTYD_SSL_CERT` / `TTYD_SSL_KEY` | HTTPS certificate / key paths |
-| `TTYD_SESSION` | tmux session name (default `ttyd`) |
-| `TTYD_TMUX=0` | Disable session persistence (use a plain login shell) |
+| Variable | Meaning | Platforms |
+|----------|---------|-----------|
+| `TTYD_PORT` | Port (default 33322) | Linux/macOS |
+| `TTYD_CRED=user:pass` | Enable login (basic auth) | Linux/macOS |
+| `TTYD_SSL_CERT` / `TTYD_SSL_KEY` | HTTPS certificate / key paths | Linux/macOS |
+| `TTYD_SESSION` | Persistent session name (default `ttyd`) — tmux on Linux/macOS, psmux on Windows | All |
+| `TTYD_TMUX=0` | Disable session persistence (use a plain login shell) | Linux/macOS |
+| `TTYD_PMUX=0` | Disable session persistence (each connection gets an independent PowerShell) | Windows |
+
+> **Windows note**: the port, login, HTTPS and session persistence can also be pre-filled in the Configuration block at the top of `bin\install-service.bat` to skip the prompts (`PORT`, `CRED`, `SSL_CERT`/`SSL_KEY`, `ENABLE_SESSION`).
 
 ### Getting an HTTPS certificate — free DDNS + free certificate
 
@@ -102,7 +106,7 @@ A certificate can be obtained for free, with no static IP or paid domain. Beside
 | Key combos | Ctrl / Alt / Shift / Win sticky toggles — turn one on and it combines with the next single input (e.g. Ctrl on + `c` = Ctrl+C) |
 | Font size | A− / A+ buttons in settings mode — live adjustment from 10 to 32 px |
 | Text selection | Touch-drag selection + Select All / Copy / Paste buttons |
-| Session persistence | **Linux/macOS**: tmux session — work survives disconnects and is restored on reconnect; multiple devices mirror the same session. **Windows**: not supported (each connection gets an independent PowerShell) |
+| Session persistence | Work survives disconnects and is restored on reconnect; multiple devices mirror the same session. **Linux/macOS**: tmux session. **Windows**: psmux session (chosen at install; falls back to an independent PowerShell per connection when psmux is absent) |
 | Security options | Login (basic auth) + HTTPS — chosen at install time |
 | Auto reconnect | Reconnects with exponential backoff (1–10 s) after a drop; connection status dot (●) |
 | Fully offline | Every resource is inlined in a single HTML file — zero external CDN dependencies, works on air-gapped networks |
@@ -165,3 +169,4 @@ It also uses the following third-party software; each component is governed by i
 | [xterm.js](https://github.com/xtermjs/xterm.js) 5.3.0 (+ fit · web-links addons) | Terminal rendering in the browser. Inlined in `public/index.html`; pristine copy in `public/vendor/` | [MIT](https://github.com/xtermjs/xterm.js/blob/master/LICENSE) |
 | [NSSM](https://nssm.cc/) 2.24 | Windows service registration. Binary bundled (`bin/nssm.exe`) | Public Domain |
 | [tmux](https://github.com/tmux/tmux) | Session persistence on Linux/macOS. Not bundled; installed by the user via package manager | [ISC](https://github.com/tmux/tmux/blob/master/COPYING) |
+| [psmux](https://github.com/psmux/psmux) | Session persistence on Windows. Not bundled; installed by the user (`winget install psmux`) | [MIT](https://github.com/psmux/psmux/blob/main/LICENSE) |
